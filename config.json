@@ -1,0 +1,13 @@
+{
+  "BOT_NAME": "ASK CRASHER",
+  "sessions": [
+    {
+      "name": "user1",
+      "sessionId": "ASK-CRASHER-V1~",
+      "ownerNumber": "24165726941",
+      "sudo": ["221754494804"],
+      "prefix": ".",
+      "mode": "public"
+    }
+  ]
+}
