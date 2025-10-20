@@ -553,174 +553,205 @@
   </footer>
 
     <script>
-        // Générer des particules
-        function createParticles() {
-            const particlesContainer = document.getElementById('particles');
-            const particleCount = 15;
+    // Générer des particules
+    function createParticles() {
+        const particlesContainer = document.getElementById('particles');
+        if (!particlesContainer) return;
+        
+        const particleCount = 15;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
             
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                
-                // Taille aléatoire
-                const size = Math.random() * 4 + 1;
-                particle.style.width = `${size}px`;
-                particle.style.height = `${size}px`;
-                
-                // Position de départ aléatoire
-                particle.style.left = `${Math.random() * 100}%`;
-                
-                // Animation delay aléatoire
-                particle.style.animationDelay = `${Math.random() * 15}s`;
-                
-                // Durée d'animation aléatoire
-                particle.style.animationDuration = `${10 + Math.random() * 10}s`;
-                
-                particlesContainer.appendChild(particle);
-            }
+            const size = Math.random() * 4 + 1;
+            particle.style.width = `${size}px`;
+            particle.style.height = `${size}px`;
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.animationDelay = `${Math.random() * 15}s`;
+            particle.style.animationDuration = `${10 + Math.random() * 10}s`;
+            
+            particlesContainer.appendChild(particle);
         }
+    }
 
-        // Toggle theme
-        function toggleTheme() {
-            const html = document.documentElement;
-            const themeIcon = document.getElementById('themeIcon');
-            const currentTheme = html.getAttribute('data-theme');
+    // Toggle theme
+    function toggleTheme() {
+        const html = document.documentElement;
+        const themeIcon = document.getElementById('themeIcon');
+        if (!themeIcon) return;
+        
+        const currentTheme = html.getAttribute('data-theme');
+        
+        if (currentTheme === 'light') {
+            html.setAttribute('data-theme', 'dark');
+            themeIcon.textContent = '🌙';
+        } else {
+            html.setAttribute('data-theme', 'light');
+            themeIcon.textContent = '☀️';
+        }
+    }
+
+    // Mise à jour de l'aperçu en temps réel
+    function updatePreview() {
+        try {
+            const userName = document.getElementById('userName')?.value || '';
+            const prefix = document.getElementById('prefix')?.value || '.';
+            const mode = document.getElementById('mode')?.value || 'public';
+            const ownerNumber = document.getElementById('ownerNumber')?.value || '';
+
+            // Vérifier que les éléments existent avant de les modifier
+            const previewUser = document.getElementById('preview-user');
+            const previewPrefix = document.getElementById('preview-prefix');
+            const previewMode = document.getElementById('preview-mode');
+            const previewOwner = document.getElementById('preview-owner');
+
+            if (previewUser) previewUser.textContent = userName || '-';
+            if (previewPrefix) previewPrefix.textContent = prefix;
+            if (previewMode) previewMode.textContent = mode;
+            if (previewOwner) previewOwner.textContent = ownerNumber || '-';
+        } catch (error) {
+            console.warn('Erreur lors de la mise à jour de l\'aperçu:', error);
+        }
+    }
+
+    // Gestion de la soumission du formulaire
+    document.getElementById('deployForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('submitBtn');
+        if (!submitBtn) {
+            console.error('Bouton de soumission non trouvé');
+            return;
+        }
+        
+        const originalText = submitBtn.innerHTML;
+        
+        // Désactiver le bouton
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<div class="loading"></div> Déploiement en cours...';
+        
+        try {
+            // Vérifier que tous les éléments existent
+            const userNameElem = document.getElementById('userName');
+            const sessionIdElem = document.getElementById('sessionId');
+            const ownerNumberElem = document.getElementById('ownerNumber');
+            const sudoNumbersElem = document.getElementById('sudoNumbers');
+            const prefixElem = document.getElementById('prefix');
+            const modeElem = document.getElementById('mode');
             
-            if (currentTheme === 'light') {
-                html.setAttribute('data-theme', 'dark');
-                themeIcon.textContent = '🌙';
+            if (!userNameElem || !sessionIdElem || !ownerNumberElem || !prefixElem || !modeElem) {
+                throw new Error('Erreur: Éléments du formulaire non trouvés');
+            }
+            
+            const userName = userNameElem.value;
+            const sessionId = sessionIdElem.value;
+            const ownerNumber = ownerNumberElem.value;
+            const sudoNumbers = sudoNumbersElem?.value || '';
+            const prefix = prefixElem.value;
+            const mode = modeElem.value;
+            
+            // Validation
+            if (!userName || !sessionId || !ownerNumber) {
+                throw new Error('Tous les champs obligatoires doivent être remplis');
+            }
+
+            // Charger la configuration actuelle
+            const response = await fetch('/api/config');
+            if (!response.ok) throw new Error('Erreur de connexion au serveur');
+            
+            const config = await response.json();
+            
+            // Vérifier si l'utilisateur existe déjà
+            config.sessions = config.sessions || [];
+            if (config.sessions.find(s => s.name === userName)) {
+                throw new Error('Ce nom d\'utilisateur existe déjà!');
+            }
+
+            // Préparer les numéros SUDO
+            const sudoArray = sudoNumbers 
+                ? sudoNumbers.split(',').map(num => num.trim()).filter(num => num)
+                : [];
+
+            // Ajouter la nouvelle session
+            config.sessions.push({
+                name: userName,
+                sessionId: sessionId,
+                ownerNumber: ownerNumber,
+                sudo: sudoArray,
+                prefix: prefix,
+                mode: mode,
+                deployedAt: Date.now()
+            });
+            
+            // Sauvegarder la configuration
+            const saveResponse = await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+            
+            if (!saveResponse.ok) {
+                const errorText = await saveResponse.text();
+                throw new Error(`Erreur serveur: ${errorText}`);
+            }
+            
+            const result = await saveResponse.json();
+            
+            if (result.success) {
+                showAlert('✅ Session ASK CRASHER déployée avec succès! Le bot va démarrer automatiquement.', 'success');
+                document.getElementById('deployForm').reset();
+                updatePreview();
             } else {
-                html.setAttribute('data-theme', 'light');
-                themeIcon.textContent = '☀️';
+                throw new Error(result.error || 'Erreur inconnue');
             }
+        } catch (error) {
+            console.error('Erreur:', error);
+            showAlert(`❌ ${error.message}`, 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
         }
+    });
 
-        // Mise à jour de l'aperçu en temps réel
-        function updatePreview() {
-            const userName = document.getElementById('userName').value;
-            const prefix = document.getElementById('prefix').value;
-            const mode = document.getElementById('mode').value;
-            const ownerNumber = document.getElementById('ownerNumber').value;
+    function showAlert(message, type) {
+        // Supprimer les alertes existantes
+        const existingAlert = document.querySelector('.alert');
+        if (existingAlert) existingAlert.remove();
 
-            document.getElementById('preview-user').textContent = userName || '-';
-            document.getElementById('preview-prefix').textContent = prefix;
-            document.getElementById('preview-mode').textContent = mode;
-            document.getElementById('preview-owner').textContent = ownerNumber || '-';
-        }
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.innerHTML = `
+            <span>${type === 'success' ? '✅' : '❌'}</span>
+            <div>${message}</div>
+        `;
 
-        // Gestion de la soumission du formulaire
-        document.getElementById('deployForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const submitBtn = document.getElementById('submitBtn');
-            const originalText = submitBtn.innerHTML;
-            
-            // Désactiver le bouton
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<div class="loading"></div> Déploiement en cours...';
-            
-            try {
-                const userName = document.getElementById('userName').value;
-                const sessionId = document.getElementById('sessionId').value;
-                const ownerNumber = document.getElementById('ownerNumber').value;
-                const sudoNumbers = document.getElementById('sudoNumbers').value;
-                const prefix = document.getElementById('prefix').value;
-                const mode = document.getElementById('mode').value;
-                
-                // Validation
-                if (!userName || !sessionId || !ownerNumber) {
-                    throw new Error('Tous les champs obligatoires doivent être remplis');
-                }
-
-                // Charger la configuration actuelle
-                const response = await fetch('/api/config');
-                if (!response.ok) throw new Error('Erreur de connexion au serveur');
-                
-                const config = await response.json();
-                
-                // Vérifier si l'utilisateur existe déjà
-                config.sessions = config.sessions || [];
-                if (config.sessions.find(s => s.name === userName)) {
-                    throw new Error('Ce nom d\'utilisateur existe déjà!');
-                }
-
-                // Préparer les numéros SUDO
-                const sudoArray = sudoNumbers 
-                    ? sudoNumbers.split(',').map(num => num.trim()).filter(num => num)
-                    : [];
-
-                // Ajouter la nouvelle session
-                config.sessions.push({
-                    name: userName,
-                    sessionId: sessionId,
-                    ownerNumber: ownerNumber,
-                    sudo: sudoArray,
-                    prefix: prefix,
-                    mode: mode,
-                    deployedAt: Date.now()
-                });
-                
-                // Sauvegarder la configuration
-                const saveResponse = await fetch('/api/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(config)
-                });
-                
-                if (!saveResponse.ok) {
-                    const errorText = await saveResponse.text();
-                    throw new Error(`Erreur serveur: ${errorText}`);
-                }
-                
-                const result = await saveResponse.json();
-                
-                if (result.success) {
-                    showAlert('✅ Session ASK CRASHER déployée avec succès! Le bot va démarrer automatiquement.', 'success');
-                    document.getElementById('deployForm').reset();
-                    updatePreview();
-                } else {
-                    throw new Error(result.error || 'Erreur inconnue');
-                }
-            } catch (error) {
-                console.error('Erreur:', error);
-                showAlert(`❌ ${error.message}`, 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-            }
-        });
-
-        function showAlert(message, type) {
-            // Supprimer les alertes existantes
-            const existingAlert = document.querySelector('.alert');
-            if (existingAlert) existingAlert.remove();
-
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.innerHTML = `
-                <span>${type === 'success' ? '✅' : '❌'}</span>
-                <div>${message}</div>
-            `;
-
-            const form = document.getElementById('deployForm');
+        const form = document.getElementById('deployForm');
+        if (form && form.parentNode) {
             form.parentNode.insertBefore(alert, form);
-
-            setTimeout(() => {
-                if (alert.parentNode) alert.remove();
-            }, 5000);
         }
 
-        // Initialisation
-        document.addEventListener('DOMContentLoaded', function() {
-            createParticles();
-            updatePreview();
-            
-            // Écouteurs pour la mise à jour en temps réel
-            document.getElementById('userName').addEventListener('input', updatePreview);
-            document.getElementById('prefix').addEventListener('change', updatePreview);
-            document.getElementById('mode').addEventListener('change', updatePreview);
-            document.getElementById('ownerNumber').addEventListener('input', updatePreview);
-        });
-    </script>
+        setTimeout(() => {
+            if (alert.parentNode) alert.remove();
+        }, 5000);
+    }
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        createParticles();
+        updatePreview();
+        
+        // Vérifier que les éléments existent avant d'ajouter les écouteurs
+        const userNameInput = document.getElementById('userName');
+        const prefixSelect = document.getElementById('prefix');
+        const modeSelect = document.getElementById('mode');
+        const ownerNumberInput = document.getElementById('ownerNumber');
+        
+        if (userNameInput) userNameInput.addEventListener('input', updatePreview);
+        if (prefixSelect) prefixSelect.addEventListener('change', updatePreview);
+        if (modeSelect) modeSelect.addEventListener('change', updatePreview);
+        if (ownerNumberInput) ownerNumberInput.addEventListener('input', updatePreview);
+    });
+</script>
 </body>
 </html>
