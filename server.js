@@ -51,7 +51,8 @@ app.get('/api/config', (req, res) => {
                 status: activeSession ? (activeSession.connected ? 'connected' : 'connecting') : 'not_started',
                 hasQr: activeSession && activeSession.qrCode ? true : false,
                 lastActivity: activeSession?.performance?.lastActivity || null,
-                connectionTime: activeSession?.performance?.connectionTime || null
+                connectionTime: activeSession?.performance?.connectionTime || null,
+                welcomeMessageSent: activeSession?.performance?.welcomeMessageSent || false
             };
         });
 
@@ -138,7 +139,7 @@ app.post('/api/config', async (req, res) => {
     }
 });
 
-// ==================== NOUVELLES ROUTES POUR LA SURVEILLANCE ====================
+// ==================== API POUR LA SURVEILLANCE COMPLÈTE ====================
 
 // API pour vérifier le statut d'une session
 app.get('/api/session/:sessionName/status', (req, res) => {
@@ -218,6 +219,61 @@ app.get('/api/session/:sessionName/mega-status', (req, res) => {
     }
 });
 
+// API pour surveiller la connexion complète
+app.get('/api/session/:sessionName/connection-status', async (req, res) => {
+    try {
+        const { sessionName } = req.params;
+        const session = activeSessions.get(sessionName);
+
+        if (!session) {
+            return res.json({
+                status: 'not_started',
+                connected: false,
+                messageSent: false,
+                progress: 'session_not_started',
+                details: 'La session n\'a pas été démarrée par le système'
+            });
+        }
+
+        // Vérifier si le message de bienvenue a été envoyé
+        const messageSent = session.performance?.welcomeMessageSent || false;
+        
+        let progress = 'connecting';
+        let message = '🔄 Connexion en cours...';
+
+        if (session.connected) {
+            if (messageSent) {
+                progress = 'completed';
+                message = '✅ Bot connecté et message envoyé!';
+            } else {
+                progress = 'connected_no_message';
+                message = '✅ Bot connecté - Envoi du message en cours...';
+            }
+        } else if (session.qrCode) {
+            progress = 'qr_required';
+            message = '📷 QR Code requis - Scannez le code dans la console';
+        }
+
+        res.json({
+            status: session.connected ? 'connected' : 'connecting',
+            connected: session.connected,
+            hasQr: !!session.qrCode,
+            messageSent: messageSent,
+            progress: progress,
+            message: message,
+            performance: session.performance,
+            lastActivity: session.performance?.lastActivity,
+            connectionTime: session.performance?.connectionTime
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur statut connexion:', error);
+        res.status(500).json({ 
+            error: 'Erreur lors de la vérification de la connexion'
+        });
+    }
+});
+
 // API pour voir les sessions actives avec détails
 app.get('/api/sessions/active', (req, res) => {
     try {
@@ -230,7 +286,8 @@ app.get('/api/sessions/active', (req, res) => {
             lastDisconnectTime: session.lastDisconnectTime,
             config: session.config,
             status: session.connected ? 'connected' : 
-                   session.qrCode ? 'qr_required' : 'connecting'
+                   session.qrCode ? 'qr_required' : 'connecting',
+            welcomeMessageSent: session.performance?.welcomeMessageSent || false
         }));
 
         res.json({
@@ -239,7 +296,8 @@ app.get('/api/sessions/active', (req, res) => {
             stats: {
                 connected: sessions.filter(s => s.connected).length,
                 connecting: sessions.filter(s => !s.connected && !s.hasQr).length,
-                qrRequired: sessions.filter(s => s.hasQr).length
+                qrRequired: sessions.filter(s => s.hasQr).length,
+                messageSent: sessions.filter(s => s.welcomeMessageSent).length
             }
         });
     } catch (error) {
@@ -361,43 +419,13 @@ app.get('/api/session/:sessionName/logs', (req, res) => {
                 connected: session.connected,
                 hasQr: !!session.qrCode,
                 lastDisconnectTime: session.lastDisconnectTime,
+                welcomeMessageSent: session.performance?.welcomeMessageSent || false,
                 uptime: session.connected && session.performance.connectionTime ? 
                     Date.now() - session.performance.connectionTime : 0
             }
         });
     } catch (error) {
         console.error('❌ Erreur récupération logs:', error);
-        res.status(500).json({ error: 'Erreur serveur' });
-    }
-});
-
-// API pour supprimer une session
-app.delete('/api/session/:sessionName', (req, res) => {
-    try {
-        const { sessionName } = req.params;
-        
-        // Importer la fonction de suppression depuis index.js
-        import('./index.js').then(({ removeSessionFromConfig }) => {
-            const success = removeSessionFromConfig(sessionName);
-            
-            if (success) {
-                res.json({
-                    success: true,
-                    message: `Session ${sessionName} supprimée avec succès`,
-                    sessionName
-                });
-            } else {
-                res.status(404).json({
-                    success: false,
-                    error: `Session ${sessionName} non trouvée`
-                });
-            }
-        }).catch(error => {
-            console.error('❌ Erreur import suppression:', error);
-            res.status(500).json({ error: 'Erreur serveur' });
-        });
-    } catch (error) {
-        console.error('❌ Erreur suppression session:', error);
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });
@@ -412,6 +440,7 @@ app.get('/api/health', (req, res) => {
             connected: activeSessionsArray.filter(s => s.connected).length,
             connecting: activeSessionsArray.filter(s => !s.connected && !s.qrCode).length,
             qrRequired: activeSessionsArray.filter(s => s.qrCode).length,
+            messageSent: activeSessionsArray.filter(s => s.performance?.welcomeMessageSent).length,
             totalMessages: activeSessionsArray.reduce((sum, s) => sum + (s.performance?.messageCount || 0), 0)
         };
 
@@ -454,6 +483,7 @@ app.get('/api/stats', (req, res) => {
                 connected: activeSessionsArray.filter(s => s.connected).length,
                 connecting: activeSessionsArray.filter(s => !s.connected && !s.qrCode).length,
                 qrRequired: activeSessionsArray.filter(s => s.qrCode).length,
+                messageSent: activeSessionsArray.filter(s => s.performance?.welcomeMessageSent).length,
                 disconnected: config.sessions.length - activeSessions.size
             },
             performance: {
@@ -484,6 +514,7 @@ app.use((req, res) => {
             'POST /api/config - Sauvegarder configuration',
             'GET  /api/session/:name/status - Statut session',
             'GET  /api/session/:name/mega-status - Statut Mega',
+            'GET  /api/session/:name/connection-status - Statut connexion complète',
             'GET  /api/sessions/active - Sessions actives',
             'GET  /api/health - Santé du serveur',
             'GET  /api/stats - Statistiques'
