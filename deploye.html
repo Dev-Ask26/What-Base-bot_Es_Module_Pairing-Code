@@ -552,25 +552,25 @@
     </div>
   </footer>
 
-    <script>
+<script>
     // Générer des particules
     function createParticles() {
         const particlesContainer = document.getElementById('particles');
         if (!particlesContainer) return;
-        
+
         const particleCount = 15;
-        
+
         for (let i = 0; i < particleCount; i++) {
             const particle = document.createElement('div');
             particle.className = 'particle';
-            
+
             const size = Math.random() * 4 + 1;
             particle.style.width = `${size}px`;
             particle.style.height = `${size}px`;
             particle.style.left = `${Math.random() * 100}%`;
             particle.style.animationDelay = `${Math.random() * 15}s`;
             particle.style.animationDuration = `${10 + Math.random() * 10}s`;
-            
+
             particlesContainer.appendChild(particle);
         }
     }
@@ -580,9 +580,9 @@
         const html = document.documentElement;
         const themeIcon = document.getElementById('themeIcon');
         if (!themeIcon) return;
-        
+
         const currentTheme = html.getAttribute('data-theme');
-        
+
         if (currentTheme === 'light') {
             html.setAttribute('data-theme', 'dark');
             themeIcon.textContent = '🌙';
@@ -592,45 +592,107 @@
         }
     }
 
-    // Mise à jour de l'aperçu en temps réel
-    function updatePreview() {
-        try {
-            const userName = document.getElementById('userName')?.value || '';
-            const prefix = document.getElementById('prefix')?.value || '.';
-            const mode = document.getElementById('mode')?.value || 'public';
-            const ownerNumber = document.getElementById('ownerNumber')?.value || '';
+    // Vérifier le statut d'une session après déploiement
+    async function checkSessionStatus(sessionName, maxAttempts = 30) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                // Vérifier le statut Mega d'abord
+                const megaResponse = await fetch(`/api/session/${sessionName}/mega-status`);
+                if (megaResponse.ok) {
+                    const megaStatus = await megaResponse.json();
+                    
+                    if (megaStatus.megaLoaded) {
+                        return {
+                            success: true,
+                            status: 'mega_loaded',
+                            message: '✅ Session Mega chargée avec succès!'
+                        };
+                    }
+                }
 
-            // Vérifier que les éléments existent avant de les modifier
-            const previewUser = document.getElementById('preview-user');
-            const previewPrefix = document.getElementById('preview-prefix');
-            const previewMode = document.getElementById('preview-mode');
-            const previewOwner = document.getElementById('preview-owner');
+                // Vérifier le statut de connexion
+                const statusResponse = await fetch(`/api/session/${sessionName}/status`);
+                if (statusResponse.ok) {
+                    const status = await statusResponse.json();
+                    
+                    if (status.connected) {
+                        return {
+                            success: true,
+                            status: 'connected',
+                            message: '✅ Bot connecté et opérationnel!'
+                        };
+                    }
+                    
+                    if (status.hasQr) {
+                        return {
+                            success: true,
+                            status: 'qr_required',
+                            message: '📷 QR Code requis - Vérifiez la console'
+                        };
+                    }
+                }
 
-            if (previewUser) previewUser.textContent = userName || '-';
-            if (previewPrefix) previewPrefix.textContent = prefix;
-            if (previewMode) previewMode.textContent = mode;
-            if (previewOwner) previewOwner.textContent = ownerNumber || '-';
-        } catch (error) {
-            console.warn('Erreur lors de la mise à jour de l\'aperçu:', error);
+                // Attendre avant la prochaine vérification
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Mettre à jour le statut en temps réel
+                updateDeploymentStatus(sessionName, attempt, maxAttempts);
+
+            } catch (error) {
+                console.warn(`Tentative ${attempt} échouée:`, error);
+            }
         }
+
+        return {
+            success: false,
+            status: 'timeout',
+            message: '❌ Timeout - La session ne répond pas'
+        };
+    }
+
+    // Mettre à jour le statut du déploiement en temps réel
+    function updateDeploymentStatus(sessionName, currentAttempt, maxAttempts) {
+        const statusElement = document.getElementById('deploymentStatus');
+        if (!statusElement) return;
+
+        const progress = Math.min((currentAttempt / maxAttempts) * 100, 100);
+        statusElement.innerHTML = `
+            <div style="text-align: center; padding: 10px; background: rgba(0, 247, 255, 0.1); border-radius: 8px; margin: 10px 0;">
+                <div style="font-size: 14px; margin-bottom: 5px;">🔄 Déploiement en cours...</div>
+                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px; overflow: hidden;">
+                    <div style="height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary)); width: ${progress}%; transition: width 0.3s;"></div>
+                </div>
+                <div style="font-size: 12px; margin-top: 5px; color: var(--muted);">
+                    ${currentAttempt}/${maxAttempts} - Vérification du statut...
+                </div>
+            </div>
+        `;
     }
 
     // Gestion de la soumission du formulaire
     document.getElementById('deployForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        
+
         const submitBtn = document.getElementById('submitBtn');
         if (!submitBtn) {
             console.error('Bouton de soumission non trouvé');
             return;
         }
-        
+
         const originalText = submitBtn.innerHTML;
-        
+
         // Désactiver le bouton
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<div class="loading"></div> Déploiement en cours...';
-        
+
+        // Ajouter l'élément de statut
+        let statusElement = document.getElementById('deploymentStatus');
+        if (!statusElement) {
+            statusElement = document.createElement('div');
+            statusElement.id = 'deploymentStatus';
+            submitBtn.parentNode.insertBefore(statusElement, submitBtn);
+        }
+
         try {
             // Vérifier que tous les éléments existent
             const userNameElem = document.getElementById('userName');
@@ -639,29 +701,34 @@
             const sudoNumbersElem = document.getElementById('sudoNumbers');
             const prefixElem = document.getElementById('prefix');
             const modeElem = document.getElementById('mode');
-            
+
             if (!userNameElem || !sessionIdElem || !ownerNumberElem || !prefixElem || !modeElem) {
                 throw new Error('Erreur: Éléments du formulaire non trouvés');
             }
-            
-            const userName = userNameElem.value;
-            const sessionId = sessionIdElem.value;
-            const ownerNumber = ownerNumberElem.value;
-            const sudoNumbers = sudoNumbersElem?.value || '';
+
+            const userName = userNameElem.value.trim();
+            const sessionId = sessionIdElem.value.trim();
+            const ownerNumber = ownerNumberElem.value.trim();
+            const sudoNumbers = sudoNumbersElem?.value.trim() || '';
             const prefix = prefixElem.value;
             const mode = modeElem.value;
-            
+
             // Validation
             if (!userName || !sessionId || !ownerNumber) {
                 throw new Error('Tous les champs obligatoires doivent être remplis');
             }
 
+            // Validation du format Session ID
+            if (!sessionId.startsWith('ASK-CRASHER-V1~')) {
+                throw new Error('Format Session ID invalide. Doit commencer par ASK-CRASHER-V1~');
+            }
+
             // Charger la configuration actuelle
             const response = await fetch('/api/config');
             if (!response.ok) throw new Error('Erreur de connexion au serveur');
-            
+
             const config = await response.json();
-            
+
             // Vérifier si l'utilisateur existe déjà
             config.sessions = config.sessions || [];
             if (config.sessions.find(s => s.name === userName)) {
@@ -681,34 +748,57 @@
                 sudo: sudoArray,
                 prefix: prefix,
                 mode: mode,
-                deployedAt: Date.now()
+                deployedAt: new Date().toISOString()
             });
-            
+
             // Sauvegarder la configuration
             const saveResponse = await fetch('/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(config)
             });
-            
+
             if (!saveResponse.ok) {
                 const errorText = await saveResponse.text();
                 throw new Error(`Erreur serveur: ${errorText}`);
             }
-            
+
             const result = await saveResponse.json();
-            
+
             if (result.success) {
-                showAlert('✅ Session ASK CRASHER déployée avec succès! Le bot va démarrer automatiquement.', 'success');
+                showAlert('🔄 Configuration sauvegardée. Démarrage du bot en cours...', 'info');
+                
+                // Vérifier le statut en temps réel
+                const deploymentResult = await checkSessionStatus(userName);
+                
+                if (deploymentResult.success) {
+                    showAlert(deploymentResult.message, 'success');
+                    
+                    // Message supplémentaire selon le statut
+                    if (deploymentResult.status === 'qr_required') {
+                        showAlert('💡 Vérifiez la console du serveur pour scanner le QR Code', 'warning');
+                    }
+                } else {
+                    showAlert(deploymentResult.message, 'warning');
+                    showAlert('⚠️ Le bot peut mettre quelques minutes à démarrer. Vérifiez les logs.', 'info');
+                }
+
+                // Réinitialiser le formulaire
                 document.getElementById('deployForm').reset();
                 updatePreview();
+
             } else {
-                throw new Error(result.error || 'Erreur inconnue');
+                throw new Error(result.error || 'Erreur inconnue lors du déploiement');
             }
         } catch (error) {
             console.error('Erreur:', error);
             showAlert(`❌ ${error.message}`, 'error');
         } finally {
+            // Nettoyer l'élément de statut
+            const statusElement = document.getElementById('deploymentStatus');
+            if (statusElement) statusElement.remove();
+            
+            // Réactiver le bouton
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
         }
@@ -721,8 +811,16 @@
 
         const alert = document.createElement('div');
         alert.className = `alert alert-${type}`;
+        
+        const icons = {
+            success: '✅',
+            error: '❌',
+            warning: '⚠️',
+            info: '💡'
+        };
+        
         alert.innerHTML = `
-            <span>${type === 'success' ? '✅' : '❌'}</span>
+            <span>${icons[type] || '💡'}</span>
             <div>${message}</div>
         `;
 
@@ -731,27 +829,57 @@
             form.parentNode.insertBefore(alert, form);
         }
 
-        setTimeout(() => {
-            if (alert.parentNode) alert.remove();
-        }, 5000);
+        // Ne pas supprimer automatiquement les alertes de succès/erreur
+        if (type !== 'success' && type !== 'error') {
+            setTimeout(() => {
+                if (alert.parentNode) alert.remove();
+            }, 5000);
+        }
     }
 
     // Initialisation
     document.addEventListener('DOMContentLoaded', function() {
         createParticles();
         updatePreview();
-        
+
         // Vérifier que les éléments existent avant d'ajouter les écouteurs
         const userNameInput = document.getElementById('userName');
         const prefixSelect = document.getElementById('prefix');
         const modeSelect = document.getElementById('mode');
         const ownerNumberInput = document.getElementById('ownerNumber');
-        
+
         if (userNameInput) userNameInput.addEventListener('input', updatePreview);
         if (prefixSelect) prefixSelect.addEventListener('change', updatePreview);
         if (modeSelect) modeSelect.addEventListener('change', updatePreview);
         if (ownerNumberInput) ownerNumberInput.addEventListener('input', updatePreview);
     });
+
+    // Fonction de mise à jour de l'aperçu (si elle existe)
+    function updatePreview() {
+        try {
+            const userName = document.getElementById('userName')?.value || '';
+            const prefix = document.getElementById('prefix')?.value || '.';
+            const mode = document.getElementById('mode')?.value || 'public';
+            const ownerNumber = document.getElementById('ownerNumber')?.value || '';
+
+            // Mettre à jour l'aperçu si les éléments existent
+            const previewElements = {
+                'preview-user': userName || '-',
+                'preview-prefix': prefix,
+                'preview-mode': mode,
+                'preview-owner': ownerNumber || '-'
+            };
+
+            Object.keys(previewElements).forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = previewElements[id];
+                }
+            });
+        } catch (error) {
+            console.warn('Erreur lors de la mise à jour de l\'aperçu:', error);
+        }
+    }
 </script>
 </body>
 </html>
