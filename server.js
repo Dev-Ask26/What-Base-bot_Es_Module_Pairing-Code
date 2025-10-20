@@ -139,7 +139,7 @@ app.post('/api/config', async (req, res) => {
     }
 });
 
-// ==================== API POUR LA SURVEILLANCE COMPLÈTE ====================
+// ==================== API POUR LA SURVEILLANCE ====================
 
 // API pour vérifier le statut d'une session
 app.get('/api/session/:sessionName/status', (req, res) => {
@@ -349,52 +349,6 @@ app.post('/api/sessions/start', async (req, res) => {
         res.status(500).json({ 
             error: 'Erreur lors du démarrage: ' + error.message
         });
-    }
-});
-
-// API pour redémarrer toutes les sessions
-app.post('/api/sessions/restart-all', async (req, res) => {
-    try {
-        const config = loadConfig();
-        const sessions = config.sessions || [];
-        
-        console.log('🔄 Redémarrage de toutes les sessions...');
-        
-        let startedCount = 0;
-        let failedCount = 0;
-        
-        for (const session of sessions) {
-            try {
-                // Arrêter la session existante si elle est active
-                if (activeSessions.has(session.name)) {
-                    const activeSession = activeSessions.get(session.name);
-                    if (activeSession.socket) {
-                        activeSession.socket.end();
-                    }
-                    activeSessions.delete(session.name);
-                }
-                
-                // Redémarrer la session
-                await startBotForSession(session);
-                startedCount++;
-                console.log(`✅ Session ${session.name} redémarrée`);
-            } catch (error) {
-                console.error(`❌ Erreur session ${session.name}:`, error.message);
-                failedCount++;
-            }
-        }
-        
-        res.json({
-            success: true,
-            message: `${startedCount}/${sessions.length} sessions redémarrées`,
-            sessionsStarted: startedCount,
-            sessionsFailed: failedCount,
-            totalSessions: sessions.length
-        });
-        
-    } catch (error) {
-        console.error('❌ Erreur redémarrage sessions:', error);
-        res.status(500).json({ error: 'Erreur serveur: ' + error.message });
     }
 });
 
