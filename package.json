@@ -1,5 +1,5 @@
 {
-  "name": "ASK-CRASHER V¹.⁰",
+  "name": "ASK-CRASHER",
   "version": "1.0.0",
   "description": "Automated WhatsApp MD bot created using Node.js and Baileys lib",
   "main": "server.js",
