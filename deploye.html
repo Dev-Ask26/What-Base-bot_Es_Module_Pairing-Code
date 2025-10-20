@@ -433,7 +433,7 @@
 <body>
     <!-- Grille futuriste -->
     <div class="grid"></div>
-    
+
     <!-- Particules animées -->
     <div class="particles" id="particles"></div>
 
@@ -503,7 +503,7 @@
                             <span>🤖</span>
                             Configuration du Bot
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="prefix" class="form-label">🔤 Prefix *</label>
@@ -604,52 +604,67 @@
         }
     }
 
-    // Vérifier le statut d'une session après déploiement
-    async function checkSessionStatus(sessionName, maxAttempts = 30) {
+    // Vérifier le statut complet d'une session après déploiement
+    async function checkSessionStatus(sessionName, maxAttempts = 40) {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Vérifier le statut Mega d'abord
-                const megaResponse = await fetch(`/api/session/${sessionName}/mega-status`);
-                if (megaResponse.ok) {
-                    const megaStatus = await megaResponse.json();
+                // Vérifier le statut de connexion COMPLET
+                const connectionResponse = await fetch(`/api/session/${sessionName}/connection-status`);
+                if (connectionResponse.ok) {
+                    const connectionStatus = await connectionResponse.json();
                     
-                    if (megaStatus.megaLoaded) {
+                    // Mettre à jour le statut en temps réel
+                    updateDeploymentStatus(sessionName, attempt, maxAttempts, connectionStatus);
+                    
+                    // Si complètement déployé avec message envoyé
+                    if (connectionStatus.progress === 'completed') {
                         return {
                             success: true,
-                            status: 'mega_loaded',
-                            message: '✅ Session Mega chargée avec succès!'
+                            status: 'completed',
+                            message: '✅ Déploiement terminé! Bot connecté et message envoyé!',
+                            details: 'Vérifiez votre WhatsApp pour le message de confirmation'
                         };
                     }
-                }
-
-                // Vérifier le statut de connexion
-                const statusResponse = await fetch(`/api/session/${sessionName}/status`);
-                if (statusResponse.ok) {
-                    const status = await statusResponse.json();
                     
-                    if (status.connected) {
+                    // Si connecté mais message pas encore envoyé
+                    if (connectionStatus.progress === 'connected_no_message') {
                         return {
                             success: true,
                             status: 'connected',
-                            message: '✅ Bot connecté et opérationnel!'
+                            message: '✅ Bot connecté! Envoi du message en cours...',
+                            details: 'Le message devrait arriver dans quelques secondes'
                         };
                     }
                     
-                    if (status.hasQr) {
+                    // Si QR code requis
+                    if (connectionStatus.progress === 'qr_required') {
                         return {
                             success: true,
                             status: 'qr_required',
-                            message: '📷 QR Code requis - Vérifiez la console'
+                            message: '📷 QR Code requis',
+                            details: 'Vérifiez la console du serveur pour scanner le QR Code'
                         };
+                    }
+                    
+                    // Si Mega chargé mais pas encore connecté
+                    const megaResponse = await fetch(`/api/session/${sessionName}/mega-status`);
+                    if (megaResponse.ok) {
+                        const megaStatus = await megaResponse.json();
+                        
+                        if (megaStatus.megaLoaded && connectionStatus.progress === 'connecting') {
+                            return {
+                                success: true,
+                                status: 'mega_loaded',
+                                message: '🔄 Session Mega chargée - Connexion WhatsApp en cours...',
+                                details: 'Le bot devrait se connecter sous peu'
+                            };
+                        }
                     }
                 }
 
                 // Attendre avant la prochaine vérification
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // Mettre à jour le statut en temps réel
-                updateDeploymentStatus(sessionName, attempt, maxAttempts);
-
+                    
             } catch (error) {
                 console.warn(`Tentative ${attempt} échouée:`, error);
             }
@@ -658,24 +673,37 @@
         return {
             success: false,
             status: 'timeout',
-            message: '❌ Timeout - La session ne répond pas'
+            message: '⏱️ Déploiement en timeout',
+            details: 'La session met trop de temps à répondre. Vérifiez les logs du serveur.'
         };
     }
 
-    // Mettre à jour le statut du déploiement en temps réel
-    function updateDeploymentStatus(sessionName, currentAttempt, maxAttempts) {
+    // Mettre à jour le statut du déploiement en temps réel avec détails
+    function updateDeploymentStatus(sessionName, currentAttempt, maxAttempts, connectionStatus) {
         const statusElement = document.getElementById('deploymentStatus');
         if (!statusElement) return;
 
         const progress = Math.min((currentAttempt / maxAttempts) * 100, 100);
+        
+        let statusText = '🔄 Déploiement en cours...';
+        let details = 'Initialisation de la session';
+        
+        if (connectionStatus) {
+            statusText = connectionStatus.message;
+            details = `Statut: ${connectionStatus.progress} | Tentative: ${currentAttempt}/${maxAttempts}`;
+        }
+
         statusElement.innerHTML = `
-            <div style="text-align: center; padding: 10px; background: rgba(0, 247, 255, 0.1); border-radius: 8px; margin: 10px 0;">
-                <div style="font-size: 14px; margin-bottom: 5px;">🔄 Déploiement en cours...</div>
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px; overflow: hidden;">
+            <div style="text-align: center; padding: 15px; background: rgba(0, 247, 255, 0.1); border-radius: 8px; margin: 10px 0; border: 1px solid rgba(0, 247, 255, 0.3);">
+                <div style="font-size: 14px; margin-bottom: 8px; font-weight: 600;">${statusText}</div>
+                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 8px; overflow: hidden; margin: 8px 0;">
                     <div style="height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary)); width: ${progress}%; transition: width 0.3s;"></div>
                 </div>
                 <div style="font-size: 12px; margin-top: 5px; color: var(--muted);">
-                    ${currentAttempt}/${maxAttempts} - Vérification du statut...
+                    ${details}
+                </div>
+                <div style="font-size: 11px; margin-top: 3px; color: var(--muted);">
+                    Session: ${sessionName}
                 </div>
             </div>
         `;
@@ -780,19 +808,27 @@
             if (result.success) {
                 showAlert('🔄 Configuration sauvegardée. Démarrage du bot en cours...', 'info');
                 
-                // Vérifier le statut en temps réel
+                // Vérifier le statut COMPLET en temps réel
                 const deploymentResult = await checkSessionStatus(userName);
                 
                 if (deploymentResult.success) {
                     showAlert(deploymentResult.message, 'success');
                     
-                    // Message supplémentaire selon le statut
+                    // Afficher les détails supplémentaires
+                    if (deploymentResult.details) {
+                        showAlert(deploymentResult.details, 'info');
+                    }
+                    
+                    // Messages spécifiques selon le statut
                     if (deploymentResult.status === 'qr_required') {
-                        showAlert('💡 Vérifiez la console du serveur pour scanner le QR Code', 'warning');
+                        showAlert('🔍 Vérifiez la console du serveur pour scanner le QR Code', 'warning');
+                    } else if (deploymentResult.status === 'connected') {
+                        showAlert('📱 Vérifiez votre WhatsApp pour le message de confirmation', 'info');
                     }
                 } else {
                     showAlert(deploymentResult.message, 'warning');
-                    showAlert('⚠️ Le bot peut mettre quelques minutes à démarrer. Vérifiez les logs.', 'info');
+                    showAlert('⚠️ ' + deploymentResult.details, 'info');
+                    showAlert('🔍 Vérifiez les logs du serveur pour plus de détails', 'info');
                 }
 
                 // Réinitialiser le formulaire
