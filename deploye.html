@@ -1,466 +1,366 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Déploiement - Ask Crasher</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASK CRASHER - Déploiement</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root{
+            --bg:#0b0f14;
+            --card:#0f1720;
+            --muted:#98a0ad;
+            --text:#e6eef8;
+            --accent:#667eea;
+            --accent-2:#764ba2;
+            --glass: rgba(255,255,255,0.03);
+            --success:#48bb78;
+            --error:#f56565;
+            --warning:#ed8936;
+            --shadow: 0 8px 30px rgba(2,6,23,0.6);
+            --radius:14px;
+            --glass-2: rgba(255,255,255,0.02);
+            --gradient: linear-gradient(135deg,var(--accent),var(--accent-2));
+            --glass-border: rgba(255,255,255,0.04);
+            --glass-strong: rgba(255,255,255,0.06);
+            --primary: #8a2be2;
+            --secondary: #00f7ff;
+            --accent-color: #ff2a6d;
+            --darker: #080c18;
+        }
 
-<!-- Google Font -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+        /* Light theme variables (switched dynamically) */
+        :root[data-theme="light"]{
+            --bg: #f5f7fb;
+            --card:#ffffff;
+            --muted:#6b7280;
+            --text:#0b1220;
+            --glass: rgba(5,10,20,0.02);
+            --glass-2: rgba(5,10,20,0.01);
+            --glass-border: rgba(2,6,23,0.04);
+            --shadow: 0 8px 30px rgba(13,20,30,0.08);
+        }
 
-<style>
-  :root{
-    --bg:#0b0f14;
-    --card:#0f1720;
-    --muted:#98a0ad;
-    --text:#e6eef8;
-    --accent:#667eea;
-    --accent-2:#764ba2;
-    --glass: rgba(255,255,255,0.03);
-    --success:#48bb78;
-    --error:#f56565;
-    --warning:#ed8936;
-    --shadow: 0 8px 30px rgba(2,6,23,0.6);
-    --radius:14px;
-    --glass-2: rgba(255,255,255,0.02);
-    --gradient: linear-gradient(135deg,var(--accent),var(--accent-2));
-    --glass-border: rgba(255,255,255,0.04);
-    --glass-strong: rgba(255,255,255,0.06);
-    --primary: #8a2be2;
-    --secondary: #00f7ff;
-    --accent-color: #ff2a6d;
-    --darker: #080c18;
-  }
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{
+            margin:0;
+            font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+            background: radial-gradient(1200px 500px at 10% 10%, rgba(102,126,234,0.08), transparent), 
+                        radial-gradient(900px 400px at 90% 90%, rgba(118,75,162,0.06), transparent),
+                        linear-gradient(135deg, var(--darker) 0%, var(--bg) 100%);
+            color:var(--text);
+            -webkit-font-smoothing:antialiased;
+            -moz-osx-font-smoothing:grayscale;
+            min-height:100vh;
+            padding-bottom:40px;
+            position: relative;
+            overflow-x: hidden;
+        }
 
-  /* Light theme variables (switched dynamically) */
-  :root[data-theme="light"]{
-    --bg: #f5f7fb;
-    --card:#ffffff;
-    --muted:#6b7280;
-    --text:#0b1220;
-    --glass: rgba(5,10,20,0.02);
-    --glass-2: rgba(5,10,20,0.01);
-    --glass-border: rgba(2,6,23,0.04);
-    --shadow: 0 8px 30px rgba(13,20,30,0.08);
-  }
+        /* Effets d'arrière-plan futuriste */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(138, 43, 226, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(0, 247, 255, 0.1) 0%, transparent 50%);
+            z-index: -2;
+        }
 
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0;
-    font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
-    background: radial-gradient(1200px 500px at 10% 10%, rgba(102,126,234,0.08), transparent), 
-                radial-gradient(900px 400px at 90% 90%, rgba(118,75,162,0.06), transparent),
-                linear-gradient(135deg, var(--darker) 0%, var(--bg) 100%);
-    color:var(--text);
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
-    min-height:100vh;
-    padding-bottom:40px;
-    position: relative;
-    overflow-x: hidden;
-  }
+        /* Grille futuriste en arrière-plan */
+        .grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 247, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 247, 255, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+            z-index: -1;
+        }
 
-  /* Effets d'arrière-plan futuriste */
-  body::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: 
-      radial-gradient(circle at 20% 30%, rgba(138, 43, 226, 0.15) 0%, transparent 50%),
-      radial-gradient(circle at 80% 70%, rgba(0, 247, 255, 0.1) 0%, transparent 50%);
-    z-index: -2;
-  }
+        /* Header */
+        .header{
+            position:fixed;
+            left:0;right:0;top:0;
+            height:72px;
+            display:flex;
+            align-items:center;
+            background: rgba(15, 23, 32, 0.8);
+            border-bottom:1px solid var(--glass-border);
+            padding:0 28px;
+            z-index:1200;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow:var(--shadow);
+        }
 
-  /* Grille futuriste en arrière-plan */
-  .grid {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: 
-      linear-gradient(rgba(0, 247, 255, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 247, 255, 0.05) 1px, transparent 1px);
-    background-size: 30px 30px;
-    perspective: 1000px;
-    transform-style: preserve-3d;
-    z-index: -1;
-  }
+        .header .left {
+            display:flex;
+            gap:18px;
+            align-items:center;
+        }
 
-  /* Header */
-  .header{
-    position:fixed;
-    left:0;right:0;top:0;
-    height:72px;
-    display:flex;
-    align-items:center;
-    background: rgba(15, 23, 32, 0.8);
-    border-bottom:1px solid var(--glass-border);
-    padding:0 28px;
-    z-index:1200;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow:var(--shadow);
-  }
+        .logo {
+            font-weight:800;
+            letter-spacing:-0.4px;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size:20px;
+            text-decoration:none;
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
+        }
 
-  .header .left {
-    display:flex;
-    gap:18px;
-    align-items:center;
-  }
+        .header .actions {
+            margin-left:auto;
+            display:flex;
+            gap:12px;
+            align-items:center;
+        }
 
-  .logo {
-    font-weight:800;
-    letter-spacing:-0.4px;
-    background: linear-gradient(45deg, var(--primary), var(--secondary));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-size:20px;
-    text-decoration:none;
-    font-family: 'Orbitron', sans-serif;
-    text-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
-  }
+        .theme-toggle{
+            background:transparent;
+            border:1px solid var(--glass-border);
+            padding:8px 10px;
+            border-radius:10px;
+            color:var(--muted);
+            cursor:pointer;
+            font-weight:600;
+            transition: all 0.3s ease;
+        }
 
-  nav.nav-links {
-    display:flex;
-    gap:14px;
-    align-items:center;
-  }
+        .theme-toggle:hover {
+            background: rgba(138, 43, 226, 0.1);
+            color: var(--secondary);
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
+        }
 
-  nav.nav-links a {
-    color:var(--muted);
-    text-decoration:none;
-    font-weight:600;
-    font-size:14px;
-    padding:8px 10px;
-    border-radius:8px;
-    transition: all 0.3s ease;
-  }
+        /* Page main layout */
+        .container {
+            max-width:500px;
+            margin: 100px auto 40px;
+            padding: 0 24px;
+            align-items:start;
+        }
 
-  nav.nav-links a.active, nav.nav-links a:hover {
-    color:var(--text);
-    background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
-    box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
-  }
+        /* Page header */
+        .page-header{
+            text-align:center;
+            margin-bottom:30px;
+        }
 
-  .header .actions {
-    margin-left:auto;
-    display:flex;
-    gap:12px;
-    align-items:center;
-  }
+        .page-header h1{
+            font-size:32px;
+            margin:0 0 8px;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent;
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 15px rgba(138, 43, 226, 0.5);
+            letter-spacing: -0.5px;
+        }
 
-  .theme-toggle{
-    background:transparent;
-    border:1px solid var(--glass-border);
-    padding:8px 10px;
-    border-radius:10px;
-    color:var(--muted);
-    cursor:pointer;
-    font-weight:600;
-    transition: all 0.3s ease;
-  }
+        .page-header p{
+            margin:0;
+            color:var(--muted);
+            font-size:16px;
+        }
 
-  .theme-toggle:hover {
-    background: rgba(138, 43, 226, 0.1);
-    color: var(--secondary);
-    box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
-  }
+        /* Form card */
+        .card{
+            background: rgba(15, 23, 32, 0.7);
+            border-radius:var(--radius);
+            padding:28px;
+            box-shadow:var(--shadow);
+            border:1px solid var(--glass-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
 
-  /* Page main layout */
-  .container {
-    max-width:1200px;
-    margin: 100px auto 40px;
-    padding: 0 24px;
-    display:grid;
-    grid-template-columns: 1fr 380px;
-    gap:28px;
-    align-items:start;
-  }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+        }
 
-  /* Page header */
-  .page-header{
-    grid-column: 1 / -1;
-    text-align:left;
-    margin-bottom:6px;
-  }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(138, 43, 226, 0.1), rgba(0, 247, 255, 0.1), transparent);
+            transform: rotate(45deg);
+            animation: shine 6s infinite;
+            z-index: -1;
+        }
 
-  .page-header h1{
-    font-size:28px;
-    margin:0 0 6px;
-    background: linear-gradient(45deg, var(--primary), var(--secondary));
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    font-family: 'Orbitron', sans-serif;
-    text-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
-  }
+        @keyframes shine {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
+        }
 
-  .page-header p{
-    margin:0;
-    color:var(--muted);
-  }
+        .form-section .card-title{
+            display:flex;
+            align-items:center;
+            gap:10px;
+            font-weight:700;
+            margin-bottom:20px;
+            color:var(--text);
+            font-size:18px;
+        }
 
-  /* Form card */
-  .card{
-    background: rgba(15, 23, 32, 0.7);
-    border-radius:var(--radius);
-    padding:20px;
-    box-shadow:var(--shadow);
-    border:1px solid var(--glass-border);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-  }
+        .alert{
+            display:flex;
+            gap:12px;
+            background: linear-gradient(90deg, rgba(102,126,234,0.04), rgba(118,75,162,0.02));
+            padding:14px;
+            border-radius:10px;
+            border:1px solid var(--glass-border);
+            color:var(--muted);
+            margin-bottom:20px;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+        }
 
-  .card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
-  }
+        form .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 
-  .card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(45deg, transparent, rgba(138, 43, 226, 0.1), rgba(0, 247, 255, 0.1), transparent);
-    transform: rotate(45deg);
-    animation: shine 6s infinite;
-    z-index: -1;
-  }
+        label.form-label{
+            display:block;
+            font-weight:600;
+            margin-bottom:8px;
+            color:var(--text);
+            font-size:13px;
+        }
 
-  @keyframes shine {
-    0% { transform: translateX(-100%) rotate(45deg); }
-    100% { transform: translateX(100%) rotate(45deg); }
-  }
+        input.form-input, select.form-select, textarea.form-input{
+            width:100%;
+            padding:12px 14px;
+            border-radius:10px;
+            border:1px solid var(--glass-border);
+            background: rgba(0, 0, 0, 0.3);
+            color:var(--text);
+            font-size:14px;
+            transition:box-shadow .18s ease, border-color .18s ease, transform .12s ease;
+        }
 
-  .form-section .card-title{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-weight:700;
-    margin-bottom:12px;
-    color:var(--text);
-  }
+        input.form-input::placeholder{ color: rgba(200,210,220,0.3) }
 
-  .alert{
-    display:flex;
-    gap:12px;
-    background: linear-gradient(90deg, rgba(102,126,234,0.04), rgba(118,75,162,0.02));
-    padding:12px;
-    border-radius:10px;
-    border:1px solid var(--glass-border);
-    color:var(--muted);
-    margin-bottom:14px;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
+        input.form-input:focus, select.form-select:focus, textarea.form-input:focus{
+            outline:none;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
+            border-color: rgba(138, 43, 226, 0.6);
+            transform: translateY(-2px);
+        }
 
-  form .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .form-help{
+            font-size:12px;
+            color:var(--muted);
+            margin-top:6px;
+        }
 
-  label.form-label{
-    display:block;
-    font-weight:600;
-    margin-bottom:8px;
-    color:var(--text);
-    font-size:13px;
-  }
+        .config-section{
+            margin-top:20px;
+            padding:16px;
+            border-radius:10px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+            border-left:4px solid rgba(102,126,234,0.7);
+        }
 
-  input.form-input, select.form-select, textarea.form-input{
-    width:100%;
-    padding:11px 12px;
-    border-radius:10px;
-    border:1px solid var(--glass-border);
-    background: rgba(0, 0, 0, 0.3);
-    color:var(--text);
-    font-size:14px;
-    transition:box-shadow .18s ease, border-color .18s ease, transform .12s ease;
-  }
+        .btn {
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            gap:10px;
+            background: linear-gradient(135deg, var(--primary) 0%, #6a11cb 100%);
+            color:white;
+            padding:14px 20px;
+            border-radius:10px;
+            border:none;
+            cursor:pointer;
+            font-weight:700;
+            box-shadow: 0 8px 24px rgba(102,126,234,0.18);
+            transition: transform .15s ease, box-shadow .15s ease;
+            position: relative;
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            width: 100%;
+            font-size: 16px;
+            margin-top: 10px;
+        }
 
-  input.form-input::placeholder{ color: rgba(200,210,220,0.3) }
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: 0.5s;
+        }
 
-  input.form-input:focus, select.form-select:focus, textarea.form-input:focus{
-    outline:none;
-    box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
-    border-color: rgba(138, 43, 226, 0.6);
-    transform: translateY(-2px);
-  }
+        .btn:hover::before {
+            left: 100%;
+        }
 
-  .form-help{
-    font-size:12px;
-    color:var(--muted);
-    margin-top:6px;
-  }
+        .btn:hover {
+            background: linear-gradient(135deg, var(--accent-color) 0%, #ff2a6d 100%);
+            box-shadow: 0 0 15px rgba(255, 42, 109, 0.5);
+            transform: translateY(-2px);
+        }
 
-  .config-section{
-    margin-top:14px;
-    padding:12px;
-    border-radius:10px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
-    border-left:4px solid rgba(102,126,234,0.7);
-  }
+        .btn:active{ transform: translateY(1px) }
+        .btn[disabled]{ opacity:0.6; transform:none; cursor:not-allowed; box-shadow:none }
 
-  .btn {
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:10px;
-    background: linear-gradient(135deg, var(--primary) 0%, #6a11cb 100%);
-    color:white;
-    padding:12px 16px;
-    border-radius:10px;
-    border:none;
-    cursor:pointer;
-    font-weight:700;
-    box-shadow: 0 8px 24px rgba(102,126,234,0.18);
-    transition: transform .15s ease, box-shadow .15s ease;
-    position: relative;
-    overflow: hidden;
-    font-family: 'Orbitron', sans-serif;
-  }
+        /* Session preview */
+        .session-preview { 
+            margin-top:20px; 
+            padding:16px; 
+            border-radius:10px; 
+            border:1px dashed var(--glass-border); 
+            background:transparent; 
+            color:var(--muted);
+            backdrop-filter: blur(6px);
+        }
+        .preview-item { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--glass-border) }
+        .preview-item:last-child{ border-bottom:none }
 
-  .btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: 0.5s;
-  }
+        /* responsive */
+        @media (max-width: 980px){
+            .container { padding:0 18px }
+            .header{ padding:0 16px }
+        }
 
-  .btn:hover::before {
-    left: 100%;
-  }
+        @media (max-width: 768px){
+            .form-row { grid-template-columns: 1fr; }
+            .card { padding: 20px; }
+        }
 
-  .btn:hover {
-    background: linear-gradient(135deg, var(--accent-color) 0%, #ff2a6d 100%);
-    box-shadow: 0 0 15px rgba(255, 42, 109, 0.5);
-    transform: translateY(-2px);
-  }
+        /* loading spinner */
+        .loading {
+            display:inline-block;
+            width:18px;height:18px;border-radius:50%;
+            border:3px solid rgba(255,255,255,0.12);
+            border-top-color:rgba(255,255,255,0.9);
+            animation:spin 1s linear infinite;
+        }
+        @keyframes spin{ to{ transform:rotate(360deg) } }
 
-  .btn:active{ transform: translateY(1px) }
-  .btn[disabled]{ opacity:0.6; transform:none; cursor:not-allowed; box-shadow:none }
-
-  /* Sidebar cards */
-  .sidebar .card + .card{ margin-top:18px }
-
-  .info-row{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:8px 0;
-    border-bottom:1px dashed var(--glass-border);
-    color:var(--muted);
-  }
-
-  .info-row:last-child{ border-bottom: none }
-
-  .progress-bar{
-    height:10px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
-    border-radius:8px;
-    overflow:hidden;
-    margin:12px 0 8px;
-    border:1px solid var(--glass-border);
-  }
-
-  .progress-fill{
-    height:100%;
-    width:75%;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-    transition: width .5s ease;
-  }
-
-  /* Steps */
-  .steps { display:flex; flex-direction:column; gap:12px; margin-top:12px }
-
-  .step {
-    display:flex;
-    gap:12px;
-    align-items:flex-start;
-    background:var(--glass-2);
-    padding:10px;
-    border-radius:10px;
-    border:1px solid var(--glass-border);
-    transition: all 0.3s ease;
-  }
-
-  .step:hover {
-    background: rgba(138, 43, 226, 0.05);
-    box-shadow: 0 0 10px rgba(138, 43, 226, 0.2);
-  }
-
-  .step-number{
-    width:36px;height:36px;border-radius:10px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
-    display:flex;align-items:center;justify-content:center;
-    font-weight:700;color:var(--muted);
-    border:1px solid var(--glass-border);
-  }
-
-  .step-content h4{ margin:0 0 6px; font-size:13px; color:var(--text) }
-  .step-content p{ margin:0; font-size:13px; color:var(--muted) }
-
-  /* Session preview */
-  .session-preview { margin-top:14px; padding:12px; border-radius:10px; border:1px dashed var(--glass-border); background:transparent; color:var(--muted) }
-  .preview-item { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--glass-border) }
-  .preview-item:last-child{ border-bottom:none }
-
-  /* responsive */
-  @media (max-width: 980px){
-    .container { grid-template-columns: 1fr; padding:0 18px }
-    .header{ padding:0 16px }
-  }
-
-  /* loading spinner */
-  .loading {
-    display:inline-block;
-    width:18px;height:18px;border-radius:50%;
-    border:3px solid rgba(255,255,255,0.12);
-    border-top-color:rgba(255,255,255,0.9);
-    animation:spin 1s linear infinite;
-  }
-  @keyframes spin{ to{ transform:rotate(360deg) } }
-
-  /* small helpers */
-  .muted { color:var(--muted) }
-  .mb-8 { margin-bottom:8px }
-  .mt-8 { margin-top:8px }
-
-  /* Effets de particules futuristes */
-  .particles {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    z-index: -1;
-  }
-
-  .particle {
-    position: absolute;
-    background: rgba(138, 43, 226, 0.3);
-    border-radius: 50%;
-    animation: float 15s infinite linear;
-  }
-
-  @keyframes float {
-    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
-    10% { opacity: 1; }
-    90% { opacity: 1; }
-    100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
-  }
 
   /* Footer */
   .footer {
@@ -503,128 +403,144 @@
     color: var(--accent-color);
     text-shadow: 0 0 8px var(--accent-color);
   }
-</style>
+
+        /* Effets de particules futuristes */
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            background: rgba(138, 43, 226, 0.3);
+            border-radius: 50%;
+            animation: float 15s infinite linear;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        }
+    </style>
 </head>
 <body>
-  <div class="grid"></div>
+    <!-- Grille futuriste -->
+    <div class="grid"></div>
+    
+    <!-- Particules animées -->
+    <div class="particles" id="particles"></div>
 
-  <!-- Header -->
-  <header class="header" role="banner">
-    <div class="left">
-      <a class="logo" href="/">ASK CRASHER</a>
-      <nav class="nav-links" aria-label="Navigation principale">
-      </nav>
-    </div>
-
-    <div class="actions">
-      <button id="themeToggle" class="theme-toggle" aria-pressed="false" title="Changer le thème">Sombre</button>
-    </div>
-  </header>
-
-  <!-- Main layout -->
-  <main>
-    <div class="container" id="pageContainer">
-
-      <!-- Page header -->
-      <div class="page-header">
-        <h1>🚀 Déploiement de Session</h1>
-        <p>Configurez et déployez votre session id Ask Crasher en quelques minutes</p>
-      </div>
-
-      <!-- FORM column -->
-      <section class="form-section card" aria-labelledby="session-config">
-        <div class="card-title" id="session-config">⚙️ Configuration de la Session</div>
-
-        <div class="alert">
-          <div style="font-size:16px">ℹ️</div>
-          <div style="line-height:1.2">Remplissez tous les champs obligatoires (*) pour déployer votre session</div>
+    <!-- Header -->
+    <header class="header">
+        <div class="left">
+            <a href="#" class="logo">ASK CRASHER</a>
         </div>
-
-        <form id="deployForm" autocomplete="off" novalidate>
-          <!-- user -->
-          <div class="mb-8">
-            <label for="userName" class="form-label">👤 Nom d'utilisateur *</label>
-            <input id="userName" type="text" class="form-input" placeholder="ex: john_doe" required>
-            <div class="form-help">Nom unique qui identifiera votre session</div>
-          </div>
-
-          <!-- session id -->
-          <div class="mb-8">
-            <label for="sessionId" class="form-label">🔑 Session ID Mega *</label>
-            <input id="sessionId" type="text" class="form-input" placeholder="ASK-CRASHER-V1~fileID#key" required>
-            <div class="form-help">Format: ASK-CRASHER-V1~fileID#key</div>
-          </div>
-
-          <div class="form-row">
-            <div>
-              <label for="ownerNumber" class="form-label">👑 Numéro Owner *</label>
-              <input id="ownerNumber" type="text" class="form-input" placeholder="24165726941" required>
-              <div class="form-help">Votre numéro WhatsApp avec indicatif pays</div>
-            </div>
-
-            <div>
-              <label for="sudoNumbers" class="form-label">🛠️ Numéros SUDO</label>
-              <input id="sudoNumbers" type="text" class="form-input" placeholder="241xxx,221...">
-              <div class="form-help">Séparés par des virgules (optionnel)</div>
-            </div>
-          </div>
-
-          <!-- Bot config -->
-          <div class="config-section">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div style="font-weight:700;color:var(--text)">Config Prefix Et Mode </div>
-            </div>
-
-            <div class="form-row mt-8">
-              <div>
-                <label for="prefix" class="form-label">🔤 Prefix Du BoT *</label>
-                <select id="prefix" class="form-select" required>
-                  <option value="." selected>Point (.)</option>
-                  <option value="!">Exclamation (!)</option>
-                  <option value="/">Slash (/)</option>
-                  <option value="#">Hashtag (#)</option>
-                  <option value="$">Dollar ($)</option>
-                  <option value="&">Ampersand (&)</option>
-                  <option value="*">Astérisque (*)</option>
-                  <option value="-">Tiret (-)</option>
-                  <option value="+">Plus (+)</option>
-                  <option value="|">Pipe (|)</option>
-                </select>
-                <div class="form-help">Prefix Du Bot</div>
-              </div>
-
-              <div>
-                <label for="mode" class="form-label">🌐 Mode du Bot *</label>
-                <select id="mode" class="form-select" required>
-                  <option value="public" selected>Public</option>
-                  <option value="private">Privé</option>
-                </select>
-                <div class="form-help">Public = Tous peuvent utiliser, Privé = Owner</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- submit -->
-          <div style="margin-top:16px">
-            <button id="submitBtn" class="btn btn-primary btn-block" type="submit">
-              <span id="submitTxt">🚀 Déployer la Session</span>
+        <div class="actions">
+            <button class="theme-toggle" onclick="toggleTheme()">
+                <span id="themeIcon">🌙</span>
             </button>
-          </div>
-        </form>
-      </section>
+        </div>
+    </header>
 
-      <!-- SIDEBAR column -->
-      <aside class="sidebar">
-        <!-- Status card -->
+    <!-- Main Content -->
+    <div class="container">
+        <div class="page-header">
+            <h1>🚀 DÉPLOIEMENT</h1>
+            <p>Configurez votre session ASK CRASHER en quelques clics</p>
+        </div>
+
         <div class="card">
-          <div class="card-title">📊 Statut du Système</div>
-          <div class="info-row">
-            <span>Sessions actives</span>
-            <span id="system-sessions">0</span>
-          </div>
+            <div class="form-section">
+                <div class="card-title">
+                    <span>⚙️</span>
+                    Configuration de la Session
+                </div>
+
+                <div class="alert">
+                    <span>💡</span>
+                    <div>
+                        <strong>Information importante</strong>
+                        <p>Tous les champs marqués d'un * sont obligatoires</p>
+                    </div>
+                </div>
+
+                <form id="deployForm">
+                    <div class="form-group">
+                        <label for="userName" class="form-label">👤 Nom d'utilisateur *</label>
+                        <input type="text" id="userName" class="form-input" placeholder="ex: john_doe" required>
+                        <div class="form-help">Nom unique qui identifiera votre session</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sessionId" class="form-label">🔑 Session ID Mega *</label>
+                        <input type="text" id="sessionId" class="form-input" placeholder="ASK-CRASHER-V1~fileID#key" required>
+                        <div class="form-help">Format: ASK-CRASHER-V1~fileID#key</div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ownerNumber" class="form-label">👑 Numéro Owner *</label>
+                            <input type="text" id="ownerNumber" class="form-input" placeholder="24165726941" required>
+                            <div class="form-help">Votre numéro WhatsApp</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sudoNumbers" class="form-label">🛠️ Numéros SUDO</label>
+                            <input type="text" id="sudoNumbers" class="form-input" placeholder="221754494804,221...">
+                            <div class="form-help">Séparés par des virgules</div>
+                        </div>
+                    </div>
+
+                    <div class="config-section">
+                        <div class="card-title" style="margin-bottom: 15px;">
+                            <span>🤖</span>
+                            Configuration du Bot
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="prefix" class="form-label">🔤 Prefix *</label>
+                                <select id="prefix" class="form-select" required>
+                                    <option value="." selected>Point (.)</option>
+                                    <option value="!">Exclamation (!)</option>
+                                    <option value="/">Slash (/)</option>
+                                    <option value="#">Hashtag (#)</option>
+                                    <option value="$">Dollar ($)</option>
+                                    <option value="&">Ampersand (&)</option>
+                                </select>
+                                <div class="form-help">Caractère pour activer les commandes</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="mode" class="form-label">🌐 Mode *</label>
+                                <select id="mode" class="form-select" required>
+                                    <option value="public" selected>Public</option>
+                                    <option value="private">Privé</option>
+                                </select>
+                                <div class="form-help">Public = Tous peuvent utiliser</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aperçu de la session -->
+                    <div class="session-preview">
+                        <div class="card-title" style="margin-bottom: 15px;">
+
+                    <!-- Bouton de soumission -->
+                    <button type="submit" class="btn" id="submitBtn">
+                        🚀 Déployer la Session
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
-  </main>
 
   <!-- Footer -->
   <footer class="footer">
@@ -636,251 +552,175 @@
     </div>
   </footer>
 
-<script>
-/* ========= THEME TOGGLE ========= */
-(function(){
-  const btn = document.getElementById('themeToggle');
-  const root = document.documentElement;
+    <script>
+        // Générer des particules
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 15;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                
+                // Taille aléatoire
+                const size = Math.random() * 4 + 1;
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                
+                // Position de départ aléatoire
+                particle.style.left = `${Math.random() * 100}%`;
+                
+                // Animation delay aléatoire
+                particle.style.animationDelay = `${Math.random() * 15}s`;
+                
+                // Durée d'animation aléatoire
+                particle.style.animationDuration = `${10 + Math.random() * 10}s`;
+                
+                particlesContainer.appendChild(particle);
+            }
+        }
 
-  // default = dark: ensure attribute absent or set to dark by default
-  function setTheme(theme){
-    if(theme === 'light'){
-      root.setAttribute('data-theme','light');
-      btn.textContent = 'Clair';
-      btn.setAttribute('aria-pressed','true');
-    } else {
-      root.removeAttribute('data-theme');
-      btn.textContent = 'Sombre';
-      btn.setAttribute('aria-pressed','false');
-    }
-  }
+        // Toggle theme
+        function toggleTheme() {
+            const html = document.documentElement;
+            const themeIcon = document.getElementById('themeIcon');
+            const currentTheme = html.getAttribute('data-theme');
+            
+            if (currentTheme === 'light') {
+                html.setAttribute('data-theme', 'dark');
+                themeIcon.textContent = '🌙';
+            } else {
+                html.setAttribute('data-theme', 'light');
+                themeIcon.textContent = '☀️';
+            }
+        }
 
-  // detect saved preference
-  const saved = localStorage.getItem('askcrasher_theme');
-  if(saved) setTheme(saved);
-  else setTheme('dark');
+        // Mise à jour de l'aperçu en temps réel
+        function updatePreview() {
+            const userName = document.getElementById('userName').value;
+            const prefix = document.getElementById('prefix').value;
+            const mode = document.getElementById('mode').value;
+            const ownerNumber = document.getElementById('ownerNumber').value;
 
-  btn.addEventListener('click', () => {
-    const isLight = root.getAttribute('data-theme') === 'light';
-    const next = isLight ? 'dark' : 'light';
-    setTheme(next);
-    localStorage.setItem('askcrasher_theme', next);
-  });
-})();
+            document.getElementById('preview-user').textContent = userName || '-';
+            document.getElementById('preview-prefix').textContent = prefix;
+            document.getElementById('preview-mode').textContent = mode;
+            document.getElementById('preview-owner').textContent = ownerNumber || '-';
+        }
 
-/* ========= PREVIEW UPDATE ========= */
-function updatePreview(){
-  const userName = document.getElementById('userName')?.value || '';
-  const prefix = document.getElementById('prefix')?.value || '.';
-  const mode = document.getElementById('mode')?.value || 'public';
-  const ownerNumber = document.getElementById('ownerNumber')?.value || '';
+        // Gestion de la soumission du formulaire
+        document.getElementById('deployForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.innerHTML;
+            
+            // Désactiver le bouton
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="loading"></div> Déploiement en cours...';
+            
+            try {
+                const userName = document.getElementById('userName').value;
+                const sessionId = document.getElementById('sessionId').value;
+                const ownerNumber = document.getElementById('ownerNumber').value;
+                const sudoNumbers = document.getElementById('sudoNumbers').value;
+                const prefix = document.getElementById('prefix').value;
+                const mode = document.getElementById('mode').value;
+                
+                // Validation
+                if (!userName || !sessionId || !ownerNumber) {
+                    throw new Error('Tous les champs obligatoires doivent être remplis');
+                }
 
-  document.getElementById('preview-user').textContent = userName || '-';
-  document.getElementById('preview-prefix').textContent = prefix || '.';
-  document.getElementById('preview-mode').textContent = mode || 'public';
-  document.getElementById('preview-owner').textContent = ownerNumber || '-';
-}
+                // Charger la configuration actuelle
+                const response = await fetch('/api/config');
+                if (!response.ok) throw new Error('Erreur de connexion au serveur');
+                
+                const config = await response.json();
+                
+                // Vérifier si l'utilisateur existe déjà
+                config.sessions = config.sessions || [];
+                if (config.sessions.find(s => s.name === userName)) {
+                    throw new Error('Ce nom d\'utilisateur existe déjà!');
+                }
 
-/* attach preview listeners (guarding existence) */
-['userName','prefix','mode','ownerNumber'].forEach(id=>{
-  const el = document.getElementById(id);
-  if(!el) return;
-  const ev = (id === 'prefix' || id === 'mode') ? 'change' : 'input';
-  el.addEventListener(ev, updatePreview);
-});
+                // Préparer les numéros SUDO
+                const sudoArray = sudoNumbers 
+                    ? sudoNumbers.split(',').map(num => num.trim()).filter(num => num)
+                    : [];
 
-/* ========= FORM SUBMIT HANDLING ========= */
-document.getElementById('deployForm')?.addEventListener('submit', async function(e){
-  e.preventDefault();
-  const submitBtn = document.getElementById('submitBtn');
-  const submitTxt = document.getElementById('submitTxt');
-  const originalHTML = submitTxt.innerHTML;
+                // Ajouter la nouvelle session
+                config.sessions.push({
+                    name: userName,
+                    sessionId: sessionId,
+                    ownerNumber: ownerNumber,
+                    sudo: sudoArray,
+                    prefix: prefix,
+                    mode: mode,
+                    deployedAt: Date.now()
+                });
+                
+                // Sauvegarder la configuration
+                const saveResponse = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                if (!saveResponse.ok) {
+                    const errorText = await saveResponse.text();
+                    throw new Error(`Erreur serveur: ${errorText}`);
+                }
+                
+                const result = await saveResponse.json();
+                
+                if (result.success) {
+                    showAlert('✅ Session ASK CRASHER déployée avec succès! Le bot va démarrer automatiquement.', 'success');
+                    document.getElementById('deployForm').reset();
+                    updatePreview();
+                } else {
+                    throw new Error(result.error || 'Erreur inconnue');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showAlert(`❌ ${error.message}`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
 
-  // small helper to re-enable
-  function enableBtn(){
-    submitBtn.disabled = false;
-    submitTxt.innerHTML = originalHTML;
-  }
+        function showAlert(message, type) {
+            // Supprimer les alertes existantes
+            const existingAlert = document.querySelector('.alert');
+            if (existingAlert) existingAlert.remove();
 
-  try {
-    submitBtn.disabled = true;
-    submitTxt.innerHTML = '<span class="loading" aria-hidden="true"></span> Déploiement en cours...';
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <span>${type === 'success' ? '✅' : '❌'}</span>
+                <div>${message}</div>
+            `;
 
-    const userName = document.getElementById('userName').value.trim();
-    const sessionId = document.getElementById('sessionId').value.trim();
-    const ownerNumber = document.getElementById('ownerNumber').value.trim();
-    const sudoNumbers = document.getElementById('sudoNumbers').value.trim();
-    const prefix = document.getElementById('prefix').value;
-    const mode = document.getElementById('mode').value;
+            const form = document.getElementById('deployForm');
+            form.parentNode.insertBefore(alert, form);
 
-    // Basic front validation
-    if(!userName || !sessionId || !ownerNumber){
-      showAlert('⚠️ Remplis tous les champs obligatoires (*)', 'error');
-      enableBtn();
-      return;
-    }
+            setTimeout(() => {
+                if (alert.parentNode) alert.remove();
+            }, 5000);
+        }
 
-    // load existing config
-    let response;
-    try {
-      response = await fetch('/api/config');
-    } catch(err){
-      console.error('Erreur fetch /api/config', err);
-      showAlert('❌ Impossible de charger la configuration (erreur réseau)', 'error');
-      enableBtn();
-      return;
-    }
-
-    if(!response.ok){
-      showAlert('❌ Erreur serveur en chargeant la config', 'error');
-      enableBtn();
-      return;
-    }
-
-    const config = await response.json();
-    config.sessions = config.sessions || [];
-
-    // check duplicate user
-    const existingUser = config.sessions.find(s => String(s.name).toLowerCase() === userName.toLowerCase());
-    if(existingUser){
-      showAlert("❌ Ce nom d'utilisateur existe déjà!", 'error');
-      enableBtn();
-      return;
-    }
-
-    // prepare sudo array
-    const sudoArray = sudoNumbers ? sudoNumbers.split(',').map(x=>x.trim()).filter(Boolean) : [];
-
-    config.sessions.push({
-      name: userName,
-      sessionId: sessionId,
-      ownerNumber: ownerNumber,
-      sudo: sudoArray,
-      prefix: prefix,
-      mode: mode
-    });
-
-    // post config
-    let saveResponse;
-    try {
-      saveResponse = await fetch('/api/config', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(config)
-      });
-    } catch(err){
-      console.error('Erreur save /api/config', err);
-      showAlert('❌ Erreur lors de la sauvegarde (réseau)', 'error');
-      enableBtn();
-      return;
-    }
-
-    if(!saveResponse.ok){
-      showAlert('❌ Échec de la sauvegarde (réponse serveur)', 'error');
-      enableBtn();
-      return;
-    }
-
-    const result = await saveResponse.json();
-    if(result && result.success){
-      showAlert('✅ Session déployée avec succès! Redirection vers le monitoring...', 'success');
-      document.getElementById('deployForm').reset();
-      updatePreview();
-      // redirect after short pause
-      setTimeout(()=> window.location.href = '/index.html', 1600);
-    } else {
-      showAlert('❌ Erreur lors du déploiement de la session', 'error');
-    }
-  } catch (err) {
-    console.error(err);
-    showAlert('❌ Erreur inattendue', 'error');
-  } finally {
-    // ensure re-enable button if not redirecting
-    if(document.getElementById('deployForm')) {
-      // if redirecting the page will unload; to be safe re-enable
-      document.getElementById('submitBtn').disabled = false;
-      document.getElementById('submitTxt').innerHTML = '🚀 Déployer la Session';
-    }
-  }
-});
-
-/* ========= ALERTS ========= */
-function showAlert(message, type='info'){
-  // remove existing non-info alerts
-  const formSection = document.querySelector('.form-section');
-  if(!formSection) return;
-
-  const old = formSection.querySelector('.alert.custom');
-  if(old) old.remove();
-
-  const el = document.createElement('div');
-  el.className = 'alert custom';
-  el.setAttribute('role','alert');
-  el.style.borderLeft = type === 'success' ? '4px solid var(--success)' : (type === 'error' ? '4px solid var(--error)' : '');
-
-  el.innerHTML = `<div style="font-size:16px">${type === 'success' ? '✅' : (type === 'error' ? '❌' : 'ℹ️')}</div>
-                  <div style="line-height:1.2">${message}</div>`;
-
-  // insert after the first alert
-  const firstAlert = formSection.querySelector('.alert');
-  if(firstAlert) firstAlert.insertAdjacentElement('afterend', el);
-  else formSection.prepend(el);
-
-  // auto remove after 5s
-  setTimeout(()=> { if(el && el.parentNode) el.remove() }, 5000);
-}
-
-/* ========= SYSTEM STATUS UPDATE ========= */
-async function updateSystemStatus(){
-  try {
-    const resp = await fetch('/api/status');
-    if(!resp.ok) throw new Error('status fetch failed');
-    const data = await resp.json();
-    document.getElementById('system-sessions').textContent = data.connected ?? 0;
-    document.getElementById('system-status').textContent = (data.connected && data.connected > 0) ? '🟢 En ligne' : '🟡 Maintenance';
-  } catch(err){
-    document.getElementById('system-status').textContent = '🔴 Hors ligne';
-  }
-}
-
-/* ========= INIT ========= */
-document.addEventListener('DOMContentLoaded', function(){
-  updatePreview();
-  updateSystemStatus();
-  setInterval(updateSystemStatus, 30000);
-
-  // validation checks on blur
-  document.getElementById('ownerNumber')?.addEventListener('blur', function(e){
-    const value = e.target.value.trim();
-    if(value && !/^\d+$/.test(value.replace(/\s/g,''))){
-      showAlert('⚠️ Le numéro owner doit contenir uniquement des chiffres', 'error');
-    }
-  });
-
-  document.getElementById('sudoNumbers')?.addEventListener('blur', function(e){
-    const value = e.target.value.trim();
-    if(value){
-      const numbers = value.split(',').map(n=>n.trim());
-      const invalid = numbers.some(n => !/^\d+$/.test(n));
-      if(invalid) showAlert('⚠️ Les numéros SUDO doivent contenir uniquement des chiffres, séparés par des virgules', 'error');
-    }
-  });
-
-  // quick tools (for convenience)
-  document.getElementById('fillTest')?.addEventListener('click', function(){
-    document.getElementById('userName').value = 'dev_user';
-    document.getElementById('sessionId').value = 'ASK-CRASHER-V1~dummy#key';
-    document.getElementById('ownerNumber').value = '24165726941';
-    document.getElementById('sudoNumbers').value = '221754494804';
-    updatePreview();
-  });
-
-  document.getElementById('clearForm')?.addEventListener('click', function(){
-    document.getElementById('deployForm').reset();
-    updatePreview();
-  });
-});
-</script>
-
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            createParticles();
+            updatePreview();
+            
+            // Écouteurs pour la mise à jour en temps réel
+            document.getElementById('userName').addEventListener('input', updatePreview);
+            document.getElementById('prefix').addEventListener('change', updatePreview);
+            document.getElementById('mode').addEventListener('change', updatePreview);
+            document.getElementById('ownerNumber').addEventListener('input', updatePreview);
+        });
+    </script>
 </body>
 </html>
