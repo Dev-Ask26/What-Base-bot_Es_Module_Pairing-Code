@@ -291,13 +291,13 @@ async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
 
     // Attendre que l'utilisateur soit disponible
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 20; // Augmenté à 20 tentatives
 
     while (attempts < maxAttempts) {
       if (devask.user && devask.user.id) {
         break;
       }
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Attendre 1 seconde
       attempts++;
     }
 
@@ -316,10 +316,25 @@ async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
 
     await devask.sendMessage(devask.user.id, { text: message });
     console.log(chalk.green(`✅ Message de confirmation envoyé pour ${sessionName}`));
+    
+    // ✅ MARQUER COMME MESSAGE ENVOYÉ DANS LA SESSION
+    const session = activeSessions.get(sessionName);
+    if (session && session.performance) {
+      session.performance.welcomeMessageSent = true;
+      session.performance.messageSentTime = Date.now();
+    }
+    
     return true;
 
   } catch (err) {
     console.error(chalk.red(`❌ Erreur envoi message confirmation:`), err.message);
+    
+    // Réessayer après un délai
+    setTimeout(async () => {
+      console.log(chalk.yellow(`🔄 Nouvelle tentative d'envoi message pour ${sessionConfig.name}`));
+      await sendWelcomeMessage(devask, sessionConfig, connectionDuration);
+    }, 5000);
+    
     return false;
   }
 }
@@ -387,7 +402,9 @@ async function startBotForSession(sessionConfig) {
       messageCount: 0,
       lastActivity: Date.now(),
       connectionTime: null,
-      connectionAttempts: 0
+      connectionAttempts: 0,
+      welcomeMessageSent: false,
+      messageSentTime: null
     };
 
     // ==================== Gestionnaire de connexion ====================
@@ -429,14 +446,14 @@ async function startBotForSession(sessionConfig) {
           performance: {
             ...performanceMetrics,
             connectionTime: Date.now(),
-            uptime: 0
+            uptime: 0,
+            welcomeMessageSent: false // Initialiser à false
           }
         });
 
-        // Envoyer le message de bienvenue après un délai
-        setTimeout(async () => {
-          await sendWelcomeMessage(devask, sessionConfig, connectionDuration);
-        }, 3000);
+        // Envoyer le message de bienvenue IMMÉDIATEMENT
+        console.log(chalk.blue(`📤 Envoi du message de bienvenue pour ${sessionName}...`));
+        await sendWelcomeMessage(devask, sessionConfig, connectionDuration);
 
       } else if (connection === 'close') {
         const reason = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.message || 'unknown';
@@ -608,7 +625,8 @@ export {
     activeSessions, 
     loadConfig, 
     removeSessionFromConfig,
-    startBotForSession
+    startBotForSession,
+    stopSession
 };
 
 // ==================== Execute ====================
