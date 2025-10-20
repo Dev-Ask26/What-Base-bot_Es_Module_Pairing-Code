@@ -79,12 +79,12 @@ function removeSessionFromConfig(sessionName) {
     const config = loadConfig();
     const initialLength = config.sessions.length;
     config.sessions = config.sessions.filter(s => s.name !== sessionName);
-    
+
     if (config.sessions.length === initialLength) {
       console.log(chalk.yellow(`⚠️ Session ${sessionName} non trouvée dans la config`));
       return false;
     }
-    
+
     const success = saveConfig(config);
     if (success) {
       console.log(chalk.green(`✅ Session ${sessionName} supprimée de la configuration`));
@@ -223,30 +223,37 @@ function watchConfigChanges() {
 }
 
 // ==================== Charger session Mega pour un utilisateur ====================
-async function loadSessionFromMega(sessionId, sessionName) {
+async function loadSessionFromMega(sessionId, sessionName, devask = null) {
   try {
     const sessionUserDir = path.join(sessionsDir, sessionName);
     const credsPath = path.join(sessionUserDir, 'creds.json');
 
+    // Si le fichier de session existe déjà, pas besoin de Mega
     if (fs.existsSync(credsPath)) {
       console.log(chalk.green(`✅ Session locale déjà présente pour ${sessionName}`));
       return true;
     }
 
+    // Vérifier le format du Session ID
     if (!sessionId.startsWith('ASK-CRASHER-V1~')) {
       console.log(chalk.yellow(`⚠️ Format Session ID non reconnu pour ${sessionName}`));
+      // Activer QR code si format invalide
+      if (devask) devask.opts.printQRInTerminal = true;
       return false;
     }
 
     const [fileID, key] = sessionId.replace('ASK-CRASHER-V1~', '').split('#');
     if (!fileID || !key) {
       console.log(chalk.red(`❌ SESSION_ID invalide pour ${sessionName}`));
+      // Activer QR code si ID invalide
+      if (devask) devask.opts.printQRInTerminal = true;
       return false;
     }
 
     console.log(chalk.blue(`🔄 Tentative de téléchargement Mega pour ${sessionName}`));
-    console.log(chalk.blue(`   📁 FileID: ${fileID}`));
-    
+    console.log(chalk.blue(`   📁 FileID: ${fileID.substring(0, 8)}...`));
+
+    // Télécharger depuis Mega
     const file = File.fromURL(`https://mega.nz/file/${fileID}#${key}`);
     await file.loadAttributes();
 
@@ -254,15 +261,25 @@ async function loadSessionFromMega(sessionId, sessionName) {
       file.download((err, d) => (err ? reject(err) : resolve(d)))
     );
 
+    // Sauvegarder localement
     if (!fs.existsSync(sessionUserDir)) {
       fs.mkdirSync(sessionUserDir, { recursive: true });
     }
 
     await fs.promises.writeFile(credsPath, data);
-    console.log(chalk.green(`✅ Session téléchargée et sauvegardée localement pour ${sessionName}`));
+    console.log(chalk.green(`✅ Session Mega téléchargée et sauvegardée pour ${sessionName}`));
     return true;
+
   } catch (err) {
     console.error(chalk.red(`❌ Impossible de charger la session depuis Mega pour ${sessionName}:`), err.message);
+    
+    // ✅ AFFICHER LE QR CODE SEULEMENT EN CAS D'ÉCHEC MEGA
+    console.log(chalk.yellow(`📷 Affichage du QR Code pour ${sessionName} (échec MegaJS)`));
+    if (devask) {
+      // Activer l'affichage du QR code pour cette session spécifique
+      devask.opts.printQRInTerminal = true;
+      console.log(chalk.yellow(`💡 Le QR code va s'afficher pour ${sessionName}`));
+    }
     return false;
   }
 }
@@ -271,11 +288,11 @@ async function loadSessionFromMega(sessionId, sessionName) {
 async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
   try {
     const { ownerNumber, prefix, mode, name: sessionName } = sessionConfig;
-    
+
     // Attendre que l'utilisateur soit disponible
     let attempts = 0;
     const maxAttempts = 10;
-    
+
     while (attempts < maxAttempts) {
       if (devask.user && devask.user.id) {
         break;
@@ -283,12 +300,12 @@ async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
       await new Promise(resolve => setTimeout(resolve, 500));
       attempts++;
     }
-    
+
     if (!devask.user || !devask.user.id) {
       console.log(chalk.yellow(`⚠️ User non disponible pour ${sessionName} après ${maxAttempts} tentatives`));
       return false;
     }
-    
+
     const message = `🤖 *ASK CRASHER* activé avec succès !\n\n` +
                   `👤 *Owner:* ${ownerNumber}\n` +
                   `⚙️ *Prefix:* ${prefix || '.'}\n` +
@@ -296,11 +313,11 @@ async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
                   `⏱️ *Connecté en:* ${connectionDuration}ms\n\n` +
                   `💡 Utilisez *${prefix || '.'}menu* pour voir les commandes disponibles.\n` +
                   `🔧 *Session:* ${sessionName}`;
-    
+
     await devask.sendMessage(devask.user.id, { text: message });
     console.log(chalk.green(`✅ Message de confirmation envoyé pour ${sessionName}`));
     return true;
-    
+
   } catch (err) {
     console.error(chalk.red(`❌ Erreur envoi message confirmation:`), err.message);
     return false;
@@ -325,23 +342,26 @@ async function startBotForSession(sessionConfig) {
 
     const sessionUserDir = path.join(sessionsDir, sessionName);
 
-    // Charger la session depuis Mega si nécessaire
-    const megaLoaded = await loadSessionFromMega(sessionId, sessionName);
-    if (!megaLoaded && !fs.existsSync(path.join(sessionUserDir, 'creds.json'))) {
-      console.log(chalk.red(`❌ Impossible de charger la session pour ${sessionName}`));
-      return;
+    // Créer le dossier de session si nécessaire
+    if (!fs.existsSync(sessionUserDir)) {
+      fs.mkdirSync(sessionUserDir, { recursive: true });
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionUserDir);
+    
+    // Créer la socket d'abord (sans QR code par défaut)
     const devask = makeWASocket({
       logger: pino({ level: 'silent' }),
       auth: state,
       browser: [`ASK CRASHER - ${sessionName}`, 'Safari', '3.3'],
-      printQRInTerminal: true, // Activé pour le debug
+      printQRInTerminal: false, // ✅ QR code caché par défaut
       markOnlineOnConnect: true,
       syncFullHistory: false,
       generateHighQualityLinkPreview: true
     });
+
+    // Charger la session depuis Mega si nécessaire
+    const megaLoaded = await loadSessionFromMega(sessionId, sessionName, devask);
 
     // ==================== Stocker le nom de session pour le handler ====================
     devask.sessionName = sessionName;
@@ -377,7 +397,7 @@ async function startBotForSession(sessionConfig) {
       if (qr) {
         console.log(chalk.yellow(`📷 QR Code reçu pour ${sessionName}`));
         performanceMetrics.connectionAttempts++;
-        
+
         activeSessions.set(sessionName, {
           socket: devask,
           config: sessionConfig,
@@ -421,7 +441,7 @@ async function startBotForSession(sessionConfig) {
       } else if (connection === 'close') {
         const reason = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.message || 'unknown';
         const disconnectTime = Date.now();
-        
+
         console.log(chalk.red(`🔴 DÉCONNEXION pour ${sessionName}`));
         console.log(chalk.red(`   📋 Raison: ${reason}`));
 
@@ -438,7 +458,7 @@ async function startBotForSession(sessionConfig) {
         // Redémarrer après un délai (éviter les boucles rapides)
         const restartDelay = 10000; // 10 secondes
         console.log(chalk.yellow(`   ⏳ Redémarrage dans ${restartDelay/1000}s...`));
-        
+
         setTimeout(() => {
           console.log(chalk.blue(`🔄 Tentative de reconnexion pour ${sessionName}`));
           startBotForSession(sessionConfig);
@@ -493,7 +513,7 @@ async function startBotForSession(sessionConfig) {
     console.error(chalk.red(`❌ Erreur critique pour la session ${sessionConfig.name}:`), err);
     // Nettoyer en cas d'erreur
     activeSessions.delete(sessionConfig.name);
-    
+
     // Retenter après un délai
     setTimeout(() => {
       console.log(chalk.yellow(`🔄 Nouvelle tentative pour ${sessionConfig.name} après erreur...`));
@@ -532,9 +552,9 @@ async function startSessions(sessions) {
 async function startAllSessions() {
   const config = loadConfig();
   const sessions = config.sessions || [];
-  
+
   console.log(chalk.blue(`🚀 Démarrage de ${sessions.length} session(s)...`));
-  
+
   if (sessions.length === 0) {
     console.log(chalk.yellow('💡 Aucune session à démarrer. Utilisez la page web pour déployer une session.'));
     return;
@@ -559,10 +579,10 @@ async function startAllSessions() {
 // ==================== Gestion propre de l'arrêt ====================
 function gracefulShutdown() {
   console.log(chalk.yellow('\n🛑 Arrêt du système ASK CRASHER en cours...'));
-  
+
   let stoppedCount = 0;
   const totalSessions = activeSessions.size;
-  
+
   activeSessions.forEach((session, name) => {
     if (session.socket) {
       try {
@@ -574,7 +594,7 @@ function gracefulShutdown() {
       }
     }
   });
-  
+
   console.log(chalk.yellow(`📊 ${stoppedCount}/${totalSessions} session(s) arrêtée(s) proprement`));
   console.log(chalk.green('👋 Arrêt complet du système'));
   process.exit(0);
@@ -584,7 +604,12 @@ process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 
 // ==================== Export pour le serveur web ====================
-export { activeSessions, loadConfig, removeSessionFromConfig };
+export { 
+    activeSessions, 
+    loadConfig, 
+    removeSessionFromConfig,
+    startBotForSession
+};
 
 // ==================== Execute ====================
 console.log(chalk.magenta('\n🤖 ASK CRASHER - Système Multi-Sessions'));
@@ -592,6 +617,7 @@ console.log(chalk.magenta('========================================='));
 console.log(chalk.blue('   🚀 Initialisation du système...'));
 console.log(chalk.blue('   📁 Dossier sessions:', sessionsDir));
 console.log(chalk.blue('   ⚙️  Fichier config:', configPath));
+console.log(chalk.blue('   💡 QR Code: Affiché seulement si MegaJS échoue'));
 console.log(chalk.magenta('=========================================\n'));
 
 // Démarrer le système
