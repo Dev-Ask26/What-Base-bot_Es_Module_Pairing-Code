@@ -22,28 +22,40 @@ function loadConfigForSession(sessionName) {
     const configPath = path.join(__dirname, "config.json");
     if (!fs.existsSync(configPath)) {
       console.log("❌ Fichier config.json non trouvé");
-      return { PREFIX: '.', MODE: 'public', BOT_NAME: 'DEV ASK', sessions: [] };
+      return { PREFIX: '.', MODE: 'public', BOT_NAME: 'ASK CRASHER', sessions: [] };
     }
-    
+
     const configData = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    
+
+    // DEBUG: Afficher ce qu'on trouve
+    console.log(`🔍 Recherche config pour session: ${sessionName}`);
+    console.log(`📋 Sessions disponibles:`, configData.sessions?.map(s => s.name) || []);
+
     // Trouver la configuration spécifique à cette session
     const sessionConfig = configData.sessions?.find(s => s.name === sessionName);
+    
     if (sessionConfig) {
+      console.log(`✅ Config trouvée pour ${sessionName}:`, {
+        prefix: sessionConfig.prefix,
+        mode: sessionConfig.mode,
+        owner: sessionConfig.ownerNumber
+      });
+      
       return {
         PREFIX: sessionConfig.prefix || '.',
         MODE: sessionConfig.mode || 'public',
-        BOT_NAME: configData.BOT_NAME || 'DEV ASK',
+        BOT_NAME: configData.BOT_NAME || 'ASK CRASHER',
         OWNER_NUMBER: sessionConfig.ownerNumber,
         SUDO: sessionConfig.sudo || [],
         ...sessionConfig
       };
     }
-    
+
+    console.log(`❌ Aucune config trouvée pour ${sessionName}, utilisation des valeurs par défaut`);
     return { 
       PREFIX: '.', 
       MODE: 'public', 
-      BOT_NAME: configData.BOT_NAME || 'DEV ASK',
+      BOT_NAME: configData.BOT_NAME || 'ASK CRASHER',
       OWNER_NUMBER: '', 
       SUDO: [] 
     };
@@ -52,7 +64,7 @@ function loadConfigForSession(sessionName) {
     return { 
       PREFIX: '.', 
       MODE: 'public', 
-      BOT_NAME: 'DEV ASK',
+      BOT_NAME: 'ASK CRASHER',
       OWNER_NUMBER: '', 
       SUDO: [] 
     };
@@ -61,19 +73,36 @@ function loadConfigForSession(sessionName) {
 
 // ==================== Obtenir le nom de session depuis la socket ====================
 function getSessionName(devask) {
-  return devask.sessionName || 'default';
+  // Plusieurs méthodes pour récupérer le nom de session
+  const sessionName = devask.sessionName || 
+                    devask.user?.id?.split(':')[0] || 
+                    'default';
+  
+  console.log(`🔧 Session détectée: ${sessionName}`);
+  return sessionName;
 }
 
 // ==================== Obtenir la config pour une session ====================
 function getSessionConfig(devask) {
   const sessionName = getSessionName(devask);
-  
+
+  // Vérifier si la config est en cache et toujours valide
   if (!global.sessionConfigs.has(sessionName)) {
+    console.log(`🔄 Chargement config pour session: ${sessionName}`);
     const config = loadConfigForSession(sessionName);
     global.sessionConfigs.set(sessionName, config);
   }
+
+  const config = global.sessionConfigs.get(sessionName);
   
-  return global.sessionConfigs.get(sessionName);
+  // DEBUG: Afficher la config utilisée
+  console.log(`⚙️ Config utilisée pour ${sessionName}:`, {
+    prefix: config.PREFIX,
+    mode: config.MODE,
+    owner: config.OWNER_NUMBER
+  });
+
+  return config;
 }
 
 // ==================== Charger toutes les commandes dynamiquement ====================
@@ -115,7 +144,7 @@ if (fs.existsSync(configPath)) {
   fs.watchFile(configPath, (curr, prev) => {
     if (curr.mtime !== prev.mtime) {
       console.log('🔄 Détection changement config.json, rechargement des configurations...');
-      global.sessionConfigs.clear();
+      global.sessionConfigs.clear(); // Vider le cache pour forcer le rechargement
     }
   });
 }
@@ -127,17 +156,35 @@ function getChatType(jid) {
   return "community";
 }
 
+// ==================== Vérifier le préfixe avec la config de session ====================
+function checkPrefix(body, prefix) {
+  // Vérifier si le message commence par le préfixe de la session
+  const startsWithPrefix = body.startsWith(prefix);
+  
+  // DEBUG
+  if (startsWithPrefix) {
+    console.log(`✅ Préfixe "${prefix}" détecté dans: "${body}"`);
+  } else {
+    console.log(`❌ Préfixe "${prefix}" NON détecté dans: "${body}"`);
+  }
+  
+  return startsWithPrefix;
+}
+
 // ==================== Handler principal multi-sessions ====================
 async function handler(devask, m, msg, rawMsg) {
   try {
     const sessionName = getSessionName(devask);
     const config = getSessionConfig(devask);
-    
+
+    console.log(`🎯 Handler appelé pour session: ${sessionName}`);
+    console.log(`📝 Message reçu:`, m.text?.substring(0, 50) + '...');
+
     // Initialiser le cache de groupe pour cette session si nécessaire
     if (!global.groupCache[sessionName]) {
       global.groupCache[sessionName] = {};
     }
-    
+
     const sessionGroupCache = global.groupCache[sessionName];
     const userId = decodeJid(m.sender);
     const chatId = decodeJid(m.chat);
@@ -170,12 +217,20 @@ async function handler(devask, m, msg, rawMsg) {
     if (!body) body = "";
     const budy = (typeof m.text === "string" ? m.text : "");
 
-    // Utiliser le préfixe de la session
-    if (!body.startsWith(config.PREFIX)) return;
-    
+    console.log(`🔤 Texte analysé: "${body}"`);
+    console.log(`🔠 Préfixe attendu: "${config.PREFIX}"`);
+
+    // VÉRIFICATION CRITIQUE : Utiliser le préfixe de la session
+    if (!checkPrefix(body, config.PREFIX)) {
+      console.log(`🚫 Message ignoré - ne commence pas par le préfixe "${config.PREFIX}"`);
+      return;
+    }
+
     const args = body.slice(config.PREFIX.length).trim().split(/ +/g);
     const command = args.shift().toLowerCase();
     const sender = m.sender || m.key.participant || m.key.remoteJid;
+
+    console.log(`📋 Commande détectée: ${command}, Args:`, args);
 
     // -------- Récupération metadata & permissions --------
     let metadata = null;
@@ -219,8 +274,11 @@ async function handler(devask, m, msg, rawMsg) {
       }
     }
 
+    console.log(`👤 Permissions - Owner: ${isOwner}, Sudo: ${isSudo}, Admin: ${isAdmins}`);
+
     // Vérif si commande existe
     if (!commands.has(command)) {
+      console.log(`❌ Commande non trouvée: ${command}`);
       await devask.sendMessage(chatId, { react: { text: "❌", key: m.key } });
 
       await devask.sendMessage(chatId, {
@@ -238,33 +296,41 @@ async function handler(devask, m, msg, rawMsg) {
       return;
     }
 
-    // Vérif mode privé avec config de session
+    // VÉRIFICATION CRITIQUE : Mode privé avec config de session
     if (config.MODE === "private" && !isOwner && !isSudo) {
+      console.log(`🚫 Mode privé activé - Accès refusé pour ${userId}`);
       return devask.sendMessage(chatId, {
-        text: `*🚫 ${config.BOT_NAME} est en mode privé.*\n_Seule l'owner et les sudo peuvent utiliser les commandes._`
+        text: `*🚫 ${config.BOT_NAME} est en mode privé.*\n_Seule l'owner et les sudo peuvent utiliser les commandes._\n\n👤 Owner: ${config.OWNER_NUMBER}`
       }, { quoted: rawMsg });
     }
-    
+
     const cmd = commands.get(command);
+    console.log(`🎯 Exécution commande: ${command} (${cmd.name})`);
 
     // Vérifs automatiques via flags dans la commande
     if (cmd.ownerOnly && !isOwner) {
+      console.log(`🚫 Commande ownerOnly refusée pour ${userId}`);
       return devask.sendMessage(chatId, { text: "🚫 Commande réservée au propriétaire." }, { quoted: rawMsg });
     }
     if (cmd.sudoOnly && !isSudo && !isOwner) {
+      console.log(`🚫 Commande sudoOnly refusée pour ${userId}`);
       return devask.sendMessage(chatId, { text: "🚫 Commande réservée aux sudo/owner." }, { quoted: rawMsg });
     }
     if (cmd.groupOnly && !isGroup) {
+      console.log(`🚫 Commande groupOnly en privé`);
       return devask.sendMessage(chatId, { text: "❌ Cette commande doit être utilisée dans un groupe." }, { quoted: rawMsg });
     }
     if (cmd.adminOnly && !isAdmins) {
+      console.log(`🚫 Commande adminOnly pour non-admin`);
       return devask.sendMessage(chatId, { text: "⛔ Seuls les admins peuvent utiliser cette commande." }, { quoted: rawMsg });
     }
     if (cmd.botAdminOnly && !isBotAdmins) {
+      console.log(`🚫 Commande botAdminOnly - bot non admin`);
       return devask.sendMessage(chatId, { text: "⚠️ Je dois être admin pour exécuter cette commande." }, { quoted: rawMsg });
     }
 
     // Exécution de la commande avec la config de session
+    console.log(`🚀 Lancement de la commande: ${command}`);
     await cmd.run(devask, m, msg, args, {
       isGroup,
       metadata,
@@ -282,10 +348,12 @@ async function handler(devask, m, msg, rawMsg) {
       sessionName: sessionName
     });
 
+    console.log(`✅ Commande ${command} exécutée avec succès`);
+
   } catch (err) {
     console.error("❌ Erreur Handler:", err);
     try {
-      await devask.sendMessage(m.chat, { text: "⚠️ Une erreur est survenue." }, { quoted: m });
+      await devask.sendMessage(m.chat, { text: "⚠️ Une erreur est survenue lors du traitement de la commande." }, { quoted: m });
     } catch {}
   }
 }
