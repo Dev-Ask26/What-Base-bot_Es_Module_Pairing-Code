@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASK CRASHER - Déploiement</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root{
             --bg:#0b0f14;
@@ -29,7 +30,6 @@
             --darker: #080c18;
         }
 
-        /* Light theme variables (switched dynamically) */
         :root[data-theme="light"]{
             --bg: #f5f7fb;
             --card:#ffffff;
@@ -58,7 +58,6 @@
             overflow-x: hidden;
         }
 
-        /* Effets d'arrière-plan futuriste */
         body::before {
             content: '';
             position: absolute;
@@ -72,7 +71,6 @@
             z-index: -2;
         }
 
-        /* Grille futuriste en arrière-plan */
         .grid {
             position: absolute;
             top: 0;
@@ -88,7 +86,6 @@
             z-index: -1;
         }
 
-        /* Header */
         .header{
             position:fixed;
             left:0;right:0;top:0;
@@ -129,6 +126,34 @@
             align-items:center;
         }
 
+        .create-session-btn {
+            background: linear-gradient(135deg, var(--primary), var(--accent-color));
+            border: none;
+            padding: 10px 18px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(138, 43, 226, 0.3);
+            text-decoration: none;
+        }
+
+        .create-session-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 42, 109, 0.5);
+            background: linear-gradient(135deg, var(--accent-color), var(--primary));
+        }
+
+        .create-session-btn:active {
+            transform: translateY(0);
+        }
+
         .theme-toggle{
             background:transparent;
             border:1px solid var(--glass-border);
@@ -146,7 +171,37 @@
             box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
         }
 
-        /* Page main layout */
+        .info-banner {
+            background: linear-gradient(135deg, rgba(138, 43, 226, 0.1), rgba(255, 42, 109, 0.1));
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(12px);
+            text-align: center;
+        }
+
+        .info-banner h3 {
+            margin: 0 0 10px;
+            font-family: 'Orbitron', sans-serif;
+            background: linear-gradient(45deg, var(--primary), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 20px;
+        }
+
+        .info-banner p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .info-banner .highlight {
+            color: var(--secondary);
+            font-weight: 600;
+        }
+
         .container {
             max-width:500px;
             margin: 100px auto 40px;
@@ -154,7 +209,6 @@
             align-items:start;
         }
 
-        /* Page header */
         .page-header{
             text-align:center;
             margin-bottom:30px;
@@ -177,7 +231,6 @@
             font-size:16px;
         }
 
-        /* Form card */
         .card{
             background: rgba(15, 23, 32, 0.7);
             border-radius:var(--radius);
@@ -238,6 +291,8 @@
         }
 
         form .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+        .form-group{margin-bottom:20px}
 
         label.form-label{
             display:block;
@@ -327,7 +382,6 @@
         .btn:active{ transform: translateY(1px) }
         .btn[disabled]{ opacity:0.6; transform:none; cursor:not-allowed; box-shadow:none }
 
-        /* Session preview */
         .session-preview { 
             margin-top:20px; 
             padding:16px; 
@@ -340,7 +394,6 @@
         .preview-item { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--glass-border) }
         .preview-item:last-child{ border-bottom:none }
 
-        /* responsive */
         @media (max-width: 980px){
             .container { padding:0 18px }
             .header{ padding:0 16px }
@@ -349,9 +402,14 @@
         @media (max-width: 768px){
             .form-row { grid-template-columns: 1fr; }
             .card { padding: 20px; }
+            .create-session-btn .btn-text {
+                display: none;
+            }
+            .create-session-btn {
+                padding: 10px 12px;
+            }
         }
 
-        /* loading spinner */
         .loading {
             display:inline-block;
             width:18px;height:18px;border-radius:50%;
@@ -361,50 +419,47 @@
         }
         @keyframes spin{ to{ transform:rotate(360deg) } }
 
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            padding: 15px 10px;
+            background: rgba(0, 0, 0, 0.25);
+            border-top: 1px solid var(--glass-border);
+            backdrop-filter: blur(6px);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            color: rgba(255,255,255,0.7);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+            width: 100%;
+        }
 
-  /* Footer */
-  .footer {
-    margin-top: 40px;
-    text-align: center;
-    padding: 15px 10px;
-    background: rgba(0, 0, 0, 0.25);
-    border-top: 1px solid var(--glass-border);
-    backdrop-filter: blur(6px);
-    font-family: 'Orbitron', sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.5px;
-    color: rgba(255,255,255,0.7);
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
-    width: 100%;
-  }
+        .footer span {
+            color: var(--secondary);
+            font-weight: 600;
+        }
 
-  .footer span {
-    color: var(--secondary);
-    font-weight: 600;
-  }
+        .footer strong {
+            color: var(--accent-color);
+            font-weight: 600;
+        }
 
-  .footer strong {
-    color: var(--accent-color);
-    font-weight: 600;
-  }
+        .footer-icons {
+            margin-top: 8px;
+        }
 
-  .footer-icons {
-    margin-top: 8px;
-  }
+        .footer-icons a {
+            color: var(--secondary);
+            margin: 0 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
 
-  .footer-icons a {
-    color: var(--secondary);
-    margin: 0 8px;
-    font-size: 16px;
-    transition: all 0.3s ease;
-  }
+        .footer-icons a:hover {
+            color: var(--accent-color);
+            text-shadow: 0 0 8px var(--accent-color);
+        }
 
-  .footer-icons a:hover {
-    color: var(--accent-color);
-    text-shadow: 0 0 8px var(--accent-color);
-  }
-
-        /* Effets de particules futuristes */
         .particles {
             position: absolute;
             top: 0;
@@ -431,29 +486,40 @@
     </style>
 </head>
 <body>
-    <!-- Grille futuriste -->
     <div class="grid"></div>
-
-    <!-- Particules animées -->
     <div class="particles" id="particles"></div>
 
-    <!-- Header -->
     <header class="header">
         <div class="left">
             <a href="#" class="logo">ASK CRASHER</a>
         </div>
         <div class="actions">
+            <a href="https://ask-crasher-v1.onrender.com" target="_blank" class="create-session-btn">
+                <span>🚀</span>
+                <span class="btn-text">Créer Session</span>
+            </a>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <span id="themeIcon">🌙</span>
             </button>
         </div>
     </header>
 
-    <!-- Main Content -->
     <div class="container">
         <div class="page-header">
             <h1>🚀 DÉPLOIEMENT</h1>
             <p>Configurez votre session ASK CRASHER en quelques clics</p>
+        </div>
+
+        <!-- Banner d'information -->
+        <div class="info-banner">
+            <h3>❌ Pas de session ?</h3>
+            <p>
+                Si vous n'avez pas encore de session configurée, <span class="highlight">créez-en une maintenant</span> !<br>
+                Cliquez sur le bouton <strong>"🚀 Créer Session"</strong> en haut à droite ou visitez : 
+                <a href="https://ask-crasher-v1.onrender.com" target="_blank" style="color: var(--secondary); text-decoration: underline;">
+                    ask-crasher-v1.onrender.com
+                </a>
+            </p>
         </div>
 
         <div class="card">
@@ -529,23 +595,18 @@
                         </div>
                     </div>
 
-                    <!-- Statut du déploiement en temps réel -->
-<div id="deploymentProgress" style="display: none;">
-    <div class="alert alert-info">
-        <span>🔄</span>
-        <div>
-            <strong>Déploiement en cours</strong>
-            <div id="deploymentDetails" style="margin-top: 5px; font-size: 12px;">
-                Vérification du statut...
-            </div>
-        </div>
-    </div>
-</div>
-                    <!-- Aperçu de la session -->
-                    <div class="session-preview">
-                        <div class="card-title" style="margin-bottom: 15px;">
+                    <div id="deploymentProgress" style="display: none;">
+                        <div class="alert alert-info">
+                            <span>🔄</span>
+                            <div>
+                                <strong>Déploiement en cours</strong>
+                                <div id="deploymentDetails" style="margin-top: 5px; font-size: 12px;">
+                                    Vérification du statut...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <!-- Bouton de soumission -->
                     <button type="submit" class="btn" id="submitBtn">
                         🚀 Déployer la Session
                     </button>
@@ -554,18 +615,16 @@
         </div>
     </div>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <p>© 2025 <span>ASK CRASHER</span> — Created by <strong>Dev Ask</strong> and <strong>Mr Problématique</strong></p>
-    <div class="footer-icons">
-      <a href="https://whatsapp.com/channel/0029VaiPkRPLY6d0qEX50e2k" target="_blank"><i class="fab fa-whatsapp"></i></a>
-      <a href="mailto:techdevask@support.com"><i class="fas fa-envelope"></i></a>
-      <a href="https://github.com/Dev-Ask26"><i class="fab fa-github"></i></a>
-    </div>
-  </footer>
+    <footer class="footer">
+        <p>© 2025 <span>ASK CRASHER</span> — Created by <strong>Dev Ask</strong> and <strong>Mr Problématique</strong></p>
+        <div class="footer-icons">
+            <a href="https://whatsapp.com/channel/0029VaiPkRPLY6d0qEX50e2k" target="_blank"><i class="fab fa-whatsapp"></i></a>
+            <a href="mailto:techdevask@support.com"><i class="fas fa-envelope"></i></a>
+            <a href="https://github.com/Dev-Ask26"><i class="fab fa-github"></i></a>
+        </div>
+    </footer>
 
 <script>
-    // Générer des particules
     function createParticles() {
         const particlesContainer = document.getElementById('particles');
         if (!particlesContainer) return;
@@ -587,7 +646,6 @@
         }
     }
 
-    // Toggle theme
     function toggleTheme() {
         const html = document.documentElement;
         const themeIcon = document.getElementById('themeIcon');
@@ -604,19 +662,15 @@
         }
     }
 
-    // Vérifier le statut complet d'une session après déploiement
     async function checkSessionStatus(sessionName, maxAttempts = 40) {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Vérifier le statut de connexion COMPLET
                 const connectionResponse = await fetch(`/api/session/${sessionName}/connection-status`);
                 if (connectionResponse.ok) {
                     const connectionStatus = await connectionResponse.json();
                     
-                    // Mettre à jour le statut en temps réel
                     updateDeploymentStatus(sessionName, attempt, maxAttempts, connectionStatus);
                     
-                    // Si complètement déployé avec message envoyé
                     if (connectionStatus.progress === 'completed') {
                         return {
                             success: true,
@@ -626,7 +680,6 @@
                         };
                     }
                     
-                    // Si connecté mais message pas encore envoyé
                     if (connectionStatus.progress === 'connected_no_message') {
                         return {
                             success: true,
@@ -636,7 +689,6 @@
                         };
                     }
                     
-                    // Si QR code requis
                     if (connectionStatus.progress === 'qr_required') {
                         return {
                             success: true,
@@ -646,7 +698,6 @@
                         };
                     }
                     
-                    // Si Mega chargé mais pas encore connecté
                     const megaResponse = await fetch(`/api/session/${sessionName}/mega-status`);
                     if (megaResponse.ok) {
                         const megaStatus = await megaResponse.json();
@@ -662,7 +713,6 @@
                     }
                 }
 
-                // Attendre avant la prochaine vérification
                 await new Promise(resolve => setTimeout(resolve, 2000));
                     
             } catch (error) {
@@ -678,7 +728,6 @@
         };
     }
 
-    // Mettre à jour le statut du déploiement en temps réel avec détails
     function updateDeploymentStatus(sessionName, currentAttempt, maxAttempts, connectionStatus) {
         const statusElement = document.getElementById('deploymentStatus');
         if (!statusElement) return;
@@ -709,7 +758,6 @@
         `;
     }
 
-    // Gestion de la soumission du formulaire
     document.getElementById('deployForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
@@ -721,11 +769,9 @@
 
         const originalText = submitBtn.innerHTML;
 
-        // Désactiver le bouton
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<div class="loading"></div> Déploiement en cours...';
 
-        // Ajouter l'élément de statut
         let statusElement = document.getElementById('deploymentStatus');
         if (!statusElement) {
             statusElement = document.createElement('div');
@@ -734,7 +780,6 @@
         }
 
         try {
-            // Vérifier que tous les éléments existent
             const userNameElem = document.getElementById('userName');
             const sessionIdElem = document.getElementById('sessionId');
             const ownerNumberElem = document.getElementById('ownerNumber');
@@ -753,35 +798,28 @@
             const prefix = prefixElem.value;
             const mode = modeElem.value;
 
-            // Validation
             if (!userName || !sessionId || !ownerNumber) {
                 throw new Error('Tous les champs obligatoires doivent être remplis');
             }
 
-            // Validation du format Session ID
             if (!sessionId.startsWith('ASK-CRASHER-V1~')) {
                 throw new Error('Format Session ID invalide. Doit commencer par ASK-CRASHER-V1~');
             }
 
-            // Charger la configuration actuelle
             const response = await fetch('/api/config');
             if (!response.ok) throw new Error('Erreur de connexion au serveur');
 
             const config = await response.json();
 
-            // Vérifier si l'utilisateur existe déjà
             config.sessions = config.sessions || [];
-            if (config.sessions.find(s => s.name === userName)) {
-                throw new Error('Ce nom d\'utilisateur existe déjà!');
-            }
-
-            // Préparer les numéros SUDO
+            
+            const existingIndex = config.sessions.findIndex(s => s.name === userName);
+            
             const sudoArray = sudoNumbers 
                 ? sudoNumbers.split(',').map(num => num.trim()).filter(num => num)
                 : [];
 
-            // Ajouter la nouvelle session
-            config.sessions.push({
+            const newSession = {
                 name: userName,
                 sessionId: sessionId,
                 ownerNumber: ownerNumber,
@@ -789,9 +827,15 @@
                 prefix: prefix,
                 mode: mode,
                 deployedAt: new Date().toISOString()
-            });
+            };
 
-            // Sauvegarder la configuration
+            if (existingIndex !== -1) {
+                config.sessions[existingIndex] = newSession;
+                showAlert(`🔄 Session "${userName}" mise à jour!`, 'info');
+            } else {
+                config.sessions.push(newSession);
+            }
+
             const saveResponse = await fetch('/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -808,18 +852,15 @@
             if (result.success) {
                 showAlert('🔄 Configuration sauvegardée. Démarrage du bot en cours...', 'info');
                 
-                // Vérifier le statut COMPLET en temps réel
                 const deploymentResult = await checkSessionStatus(userName);
                 
                 if (deploymentResult.success) {
                     showAlert(deploymentResult.message, 'success');
                     
-                    // Afficher les détails supplémentaires
                     if (deploymentResult.details) {
                         showAlert(deploymentResult.details, 'info');
                     }
                     
-                    // Messages spécifiques selon le statut
                     if (deploymentResult.status === 'qr_required') {
                         showAlert('🔍 Vérifiez la console du serveur pour scanner le QR Code', 'warning');
                     } else if (deploymentResult.status === 'connected') {
@@ -831,9 +872,7 @@
                     showAlert('🔍 Vérifiez les logs du serveur pour plus de détails', 'info');
                 }
 
-                // Réinitialiser le formulaire
                 document.getElementById('deployForm').reset();
-                updatePreview();
 
             } else {
                 throw new Error(result.error || 'Erreur inconnue lors du déploiement');
@@ -842,23 +881,21 @@
             console.error('Erreur:', error);
             showAlert(`❌ ${error.message}`, 'error');
         } finally {
-            // Nettoyer l'élément de statut
             const statusElement = document.getElementById('deploymentStatus');
             if (statusElement) statusElement.remove();
             
-            // Réactiver le bouton
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
         }
     });
 
     function showAlert(message, type) {
-        // Supprimer les alertes existantes
-        const existingAlert = document.querySelector('.alert');
-        if (existingAlert) existingAlert.remove();
+        const existingAlerts = document.querySelectorAll('.alert:not([class*="alert-info"])');
+        existingAlerts.forEach(alert => alert.remove());
 
         const alert = document.createElement('div');
         alert.className = `alert alert-${type}`;
+        alert.style.marginTop = '15px';
         
         const icons = {
             success: '✅',
@@ -877,7 +914,6 @@
             form.parentNode.insertBefore(alert, form);
         }
 
-        // Ne pas supprimer automatiquement les alertes de succès/erreur
         if (type !== 'success' && type !== 'error') {
             setTimeout(() => {
                 if (alert.parentNode) alert.remove();
@@ -885,49 +921,9 @@
         }
     }
 
-    // Initialisation
     document.addEventListener('DOMContentLoaded', function() {
         createParticles();
-        updatePreview();
-
-        // Vérifier que les éléments existent avant d'ajouter les écouteurs
-        const userNameInput = document.getElementById('userName');
-        const prefixSelect = document.getElementById('prefix');
-        const modeSelect = document.getElementById('mode');
-        const ownerNumberInput = document.getElementById('ownerNumber');
-
-        if (userNameInput) userNameInput.addEventListener('input', updatePreview);
-        if (prefixSelect) prefixSelect.addEventListener('change', updatePreview);
-        if (modeSelect) modeSelect.addEventListener('change', updatePreview);
-        if (ownerNumberInput) ownerNumberInput.addEventListener('input', updatePreview);
     });
-
-    // Fonction de mise à jour de l'aperçu (si elle existe)
-    function updatePreview() {
-        try {
-            const userName = document.getElementById('userName')?.value || '';
-            const prefix = document.getElementById('prefix')?.value || '.';
-            const mode = document.getElementById('mode')?.value || 'public';
-            const ownerNumber = document.getElementById('ownerNumber')?.value || '';
-
-            // Mettre à jour l'aperçu si les éléments existent
-            const previewElements = {
-                'preview-user': userName || '-',
-                'preview-prefix': prefix,
-                'preview-mode': mode,
-                'preview-owner': ownerNumber || '-'
-            };
-
-            Object.keys(previewElements).forEach(id => {
-                const element = document.getElementById(id);
-                if (element) {
-                    element.textContent = previewElements[id];
-                }
-            });
-        } catch (error) {
-            console.warn('Erreur lors de la mise à jour de l\'aperçu:', error);
-        }
-    }
 </script>
 </body>
 </html>
