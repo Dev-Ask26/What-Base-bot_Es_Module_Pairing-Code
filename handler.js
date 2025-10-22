@@ -1,10 +1,10 @@
-// ==================== handler.js ====================
+// ==================== handler.js (Multi-session) ====================
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
-import config, { getUserConfig } from "./config.js";
 import decodeJid from "./system/decodeJid.js";
 import checkAdminOrOwner from "./system/checkAdminOrOwner.js";
+import sessionManager from "./system/sessionManager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,7 +13,6 @@ global.groupCache = {};
 
 const commandsDir = path.join(__dirname, "commands");
 
-// Charger toutes les commandes dynamiquement
 async function loadCommands() {
   const files = fs.readdirSync(commandsDir);
   for (const file of files) {
@@ -58,12 +57,22 @@ async function handler(devask, m, msg, rawMsg) {
     const chatId = decodeJid(m.chat);
     const isGroup = m.isGroup ?? chatId.endsWith("@g.us");
 
-    // Récupération de la configuration SPÉCIFIQUE à l'utilisateur
-    const userConfig = getUserConfig(userId);
-    const userPrefix = userConfig.prefix || "!";
-    const userMode = userConfig.mode || "public";
+    // ✨ NOUVEAU: Récupérer la session de l'utilisateur actuel
+    const senderNumber = userId.split('@')[0];
+    const currentSession = sessionManager.getSessionBySender(senderNumber);
+    
+    // ✨ STRICT: Si aucune session, ignorer le message
+    if (!currentSession) {
+      console.log(`⚠️ Utilisateur ${senderNumber} sans session configurée - ignoré`);
+      return; // Ne répond pas si pas de session
+    }
+    
+    const sessionPrefix = currentSession.prefix;
+    const sessionMode = currentSession.mode;
+    // ✨ CORRECTION: Utiliser name comme sessionId si sessionId n'existe pas
+    const sessionId = currentSession.sessionId || currentSession.name;
 
-    console.log(`🔧 User: ${userId} | Prefix: "${userPrefix}" | Mode: "${userMode}"`);
+    console.log(`📱 Session active: ${currentSession.name} | Préfixe: ${sessionPrefix} | Mode: ${sessionMode} | ID: ${sessionId}`);
 
     // Récupération du texte de la commande
     let body = (
@@ -92,10 +101,10 @@ async function handler(devask, m, msg, rawMsg) {
     if (!body) body = "";
     const budy = (typeof m.text === "string" ? m.text : "");
 
-    // Vérification du préfixe SPÉCIFIQUE à l'utilisateur
-    if (!body.startsWith(userPrefix)) return;
+    // ✨ MODIFIÉ: Utiliser le préfixe de la session
+    if (!body.startsWith(sessionPrefix)) return;
     
-    const args = body.slice(userPrefix.length).trim().split(/ +/g);
+    const args = body.slice(sessionPrefix.length).trim().split(/ +/g);
     const command = args.shift().toLowerCase();
     const sender = m.sender || m.key.participant || m.key.remoteJid;
 
@@ -108,6 +117,10 @@ async function handler(devask, m, msg, rawMsg) {
     let isAdminOrOwner = false;
     let isBotAdmins = false;
 
+    // ✨ NOUVEAU: Vérifier les permissions de la session
+    const isSessionOwner = currentSession && sessionManager.isSessionOwner(senderNumber, sessionId);
+    const isSessionSudo = currentSession && sessionManager.isSessionSudo(senderNumber, sessionId);
+
     if (isGroup) {
       try {
         if (!global.groupCache[chatId]) {
@@ -119,25 +132,23 @@ async function handler(devask, m, msg, rawMsg) {
           participants = global.groupCache[chatId].participants;
         }
 
-        // Passe la userConfig à checkAdminOrOwner
-        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata, userConfig);
+        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata);
         isAdmins = perms.isAdmin;
-        isOwner = perms.isOwner;
-        isSudo = perms.isSudo;
-        isAdminOrOwner = perms.isAdminOrOwner;
+        isOwner = perms.isOwner || isSessionOwner;
+        isSudo = perms.isSudo || isSessionSudo;
+        isAdminOrOwner = perms.isAdminOrOwner || isSessionOwner || isSessionSudo;
 
-        const botPerms = await checkAdminOrOwner(devask, chatId, decodeJid(devask.user?.id), participants, metadata, userConfig);
+        const botPerms = await checkAdminOrOwner(devask, chatId, decodeJid(devask.user?.id), participants, metadata);
         isBotAdmins = botPerms.isAdmin;
       } catch (e) {
         console.error("❌ Erreur metadata:", e);
       }
     } else {
       try {
-        // Passe la userConfig à checkAdminOrOwner
-        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata, userConfig);
-        isOwner = perms.isOwner;
-        isSudo = perms.isSudo;
-        isAdminOrOwner = perms.isAdminOrOwner;
+        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata);
+        isOwner = perms.isOwner || isSessionOwner;
+        isSudo = perms.isSudo || isSessionSudo;
+        isAdminOrOwner = perms.isAdminOrOwner || isSessionOwner || isSessionSudo;
       } catch (e) {
         console.error("❌ Erreur permissions privé:", e);
       }
@@ -148,10 +159,10 @@ async function handler(devask, m, msg, rawMsg) {
       await devask.sendMessage(chatId, { react: { text: "❌", key: m.key } });
 
       await devask.sendMessage(chatId, {
-        text: `❌ Commande *${command}* non reconnue.\n\n📌 Tapez *${userPrefix}menu* pour voir les options disponibles.`,
+        text: `❌ Commande *${command}* non reconnue.\n\n📌 Tapez *${sessionPrefix}menu* pour voir les options disponibles.`,
         contextInfo: {
           externalAdReply: {
-            title: userConfig.name || "ASK CRASHER 🚫",
+            title: "ASK CRASHER 🚫",
             body: "WHATSAPP BUG BOT",
             thumbnailUrl: "https://files.catbox.moe/zq1kuc.jpg",
             sourceUrl: "https://whatsapp.com/channel/0029VaiPkRPLY6d0qEX50e2k"
@@ -162,10 +173,10 @@ async function handler(devask, m, msg, rawMsg) {
       return;
     }
 
-    // Vérif mode privé SPÉCIFIQUE à l'utilisateur
-    if (userMode === "private" && !isOwner && !isSudo) {
+    // ✨ MODIFIÉ: Vérif mode privé basée sur la session
+    if (sessionMode === "private" && !isOwner && !isSudo) {
       return devask.sendMessage(chatId, {
-        text: `*🚫 Le bot ${userConfig.name || ''} est en mode privé.*\n_Seule l'owner et les sudo peuvent utiliser les commandes._`
+        text: `*🚫 Ce bot est en mode privé.*\n_Seuls l'owner et les sudo de cette session peuvent utiliser les commandes._`
       }, { quoted: rawMsg });
     }
 
@@ -188,7 +199,7 @@ async function handler(devask, m, msg, rawMsg) {
       return devask.sendMessage(chatId, { text: "⚠️ Je dois être admin pour exécuter cette commande." }, { quoted: rawMsg });
     }
 
-    // Exécution de la commande avec la userConfig
+    // Exécution de la commande avec infos de session
     await cmd.run(devask, m, msg, args, {
       isGroup,
       metadata,
@@ -202,8 +213,13 @@ async function handler(devask, m, msg, rawMsg) {
       budy,
       chatType: getChatType(chatId),
       sender: userId,
-      userConfig, // Passe la config utilisateur aux commandes
-      prefix: userPrefix // Préfixe spécifique
+      // ✨ NOUVEAU: Informations de session
+      session: currentSession,
+      sessionId,
+      sessionPrefix,
+      sessionMode,
+      isSessionOwner,
+      isSessionSudo
     });
 
   } catch (err) {
