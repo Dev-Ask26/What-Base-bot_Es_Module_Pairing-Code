@@ -1,5 +1,4 @@
 // ==================== sessionManager.js ====================
-
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -34,10 +33,17 @@ class SessionManager {
     }
   }
 
-  // Récupérer la session par sessionId
+  // ✨ NOUVELLE MÉTHODE: Obtenir l'ID de session (avec fallback sur name)
+  getSessionId(session) {
+    return session.sessionId || session.name;
+  }
+
+  // Récupérer la session par sessionId (avec support du fallback)
   getSessionBySessionId(sessionId) {
     if (!this.config?.sessions) return null;
-    return this.config.sessions.find(s => s.sessionId === sessionId) || null;
+    return this.config.sessions.find(s => 
+      this.getSessionId(s) === sessionId
+    ) || null;
   }
 
   // Récupérer la session par numéro d'owner
@@ -128,6 +134,13 @@ class SessionManager {
     if (!session) return false;
     if (!session.sudo) session.sudo = [];
     const cleanSudo = this.cleanNumber(sudoNumber);
+    
+    // Vérifier si pas déjà owner
+    if (this.cleanNumber(session.ownerNumber) === cleanSudo) {
+      return false; // L'owner est déjà admin
+    }
+    
+    // Vérifier si pas déjà sudo
     if (!session.sudo.some(s => this.cleanNumber(s) === cleanSudo)) {
       session.sudo.push(sudoNumber);
       this.saveConfig();
@@ -155,6 +168,22 @@ class SessionManager {
   // Recharger la config depuis le fichier
   reloadConfig() {
     this.loadConfig();
+  }
+
+  // ✨ NOUVELLE MÉTHODE: Vérifier si un numéro a une session (owner ou sudo)
+  hasSession(senderNumber) {
+    return this.getSessionBySender(senderNumber) !== null;
+  }
+
+  // ✨ NOUVELLE MÉTHODE: Obtenir toutes les sessions d'un utilisateur (en tant qu'owner ou sudo)
+  getUserSessions(senderNumber) {
+    if (!this.config?.sessions) return [];
+    const cleanSender = this.cleanNumber(senderNumber);
+    
+    return this.config.sessions.filter(session => 
+      this.cleanNumber(session.ownerNumber) === cleanSender ||
+      session.sudo?.some(sudoNum => this.cleanNumber(sudoNum) === cleanSender)
+    );
   }
 }
 
