@@ -2,6 +2,7 @@
 import decodeJid from './decodeJid.js';
 import sessionManager from './sessionManager.js';
 
+
 export default async function checkAdminOrOwner(devask, chatId, sender, participants = [], metadata = null) {
   const isGroup = chatId.endsWith('@g.us');
 
