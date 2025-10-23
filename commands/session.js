@@ -1,30 +1,31 @@
 // ==================== commands/session.js ====================
+import { contextInfo } from '../system/contextInfo.js';
+
 import sessionManager from "../system/sessionManager.js";
 
-export default {
-  name: "session",
-  description: "Gérer les paramètres de votre session (préfixe, mode)",
-  ownerOnly: false,
-  sudoOnly: false,
-  groupOnly: false,
-  adminOnly: false,
-  botAdminOnly: false,
-
-  async run(devask, m, msg, args, context) {
+async function session(devask, m, msg, args, context) {
     const { sender, sessionId, session, isSessionOwner, isSessionSudo } = context;
     const senderNumber = sender.split('@')[0];
 
     // Vérifier si l'utilisateur a une session
     if (!session) {
       return devask.sendMessage(m.chat, {
-        text: "❌ Vous n'avez pas de session configurée.\n\n_Contactez l'administrateur pour configurer votre session._"
+        text: "❌ Vous n'avez pas de session configurée.\n\n_Contactez l'administrateur pour configurer votre session._",
+        contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
       }, { quoted: m });
     }
 
     // Seuls owner et sudo peuvent modifier
     if (!isSessionOwner && !isSessionSudo) {
       return devask.sendMessage(m.chat, {
-        text: "🚫 Seuls l'owner et les sudo de cette session peuvent la modifier."
+        text: "🚫 Seuls l'owner et les sudo de cette session peuvent la modifier.",
+        contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
       }, { quoted: m });
     }
 
@@ -45,7 +46,11 @@ export default {
               `• ${session.prefix}session prefix <nouveau>\n` +
               `• ${session.prefix}session mode <public|private>\n` +
               `• ${session.prefix}session addsudo <numéro>\n` +
-              `• ${session.prefix}session delsudo <numéro>`
+              `• ${session.prefix}session delsudo <numéro>`,
+              contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
       }, { quoted: m });
     }
 
@@ -54,19 +59,31 @@ export default {
       const newPrefix = args[1];
       if (!newPrefix) {
         return devask.sendMessage(m.chat, {
-          text: `❌ Usage: ${session.prefix}session prefix <nouveau_préfixe>\n\nExemple: ${session.prefix}session prefix #`
+          text: `❌ Usage: ${session.prefix}session prefix <nouveau_préfixe>\n\nExemple: ${session.prefix}session prefix #`,
+          contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
         }, { quoted: m });
       }
 
       if (newPrefix.length > 3) {
         return devask.sendMessage(m.chat, {
-          text: "❌ Le préfixe doit faire maximum 3 caractères."
+          text: "❌ Le préfixe doit faire maximum 3 caractères.",
+          contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
         }, { quoted: m });
       }
 
       sessionManager.updatePrefix(sessionId, newPrefix);
       return devask.sendMessage(m.chat, {
-        text: `✅ Préfixe mis à jour: *${newPrefix}*\n\n_Les commandes utilisent maintenant: ${newPrefix}commande_`
+        text: `✅ Préfixe mis à jour: *${newPrefix}*\n\n_Les commandes utilisent maintenant: ${newPrefix}commande_`,
+        contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
       }, { quoted: m });
     }
 
@@ -77,7 +94,11 @@ export default {
         return devask.sendMessage(m.chat, {
           text: `❌ Usage: ${session.prefix}session mode <public|private>\n\n` +
                 `• *public*: Tout le monde peut utiliser le bot\n` +
-                `• *private*: Seuls owner et sudo peuvent utiliser le bot`
+                `• *private*: Seuls owner et sudo peuvent utiliser le bot`,
+                contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
         }, { quoted: m });
       }
 
@@ -86,7 +107,11 @@ export default {
         text: `✅ Mode mis à jour: *${newMode}*\n\n` +
               (newMode === "private" 
                 ? "_Seuls l'owner et les sudo peuvent maintenant utiliser le bot._"
-                : "_Tout le monde peut maintenant utiliser le bot._")
+                : "_Tout le monde peut maintenant utiliser le bot._"),
+         contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
       }, { quoted: m });
     }
 
@@ -94,7 +119,11 @@ export default {
     if (subCommand === "addsudo") {
       if (!isSessionOwner) {
         return devask.sendMessage(m.chat, {
-          text: "🚫 Seul l'owner peut ajouter des sudo."
+          text: "🚫 Seul l'owner peut ajouter des sudo.",
+          contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
         }, { quoted: m });
       }
 
@@ -105,8 +134,12 @@ export default {
           sudoNumber = m.quoted.sender.split('@')[0];
         } else {
           return devask.sendMessage(m.chat, {
-            text: `❌ Usage: ${session.prefix}session addsudo <numéro>\n\nOu répondez à un message.`
-          }, { quoted: m });
+            text: `❌ Usage: ${session.prefix}session addsudo <numéro>\n\nOu répondez à un message.`,
+               contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
+                      }, { quoted: m });
         }
       }
 
@@ -115,13 +148,21 @@ export default {
       
       if (sessionManager.cleanNumber(session.ownerNumber) === sudoNumber) {
         return devask.sendMessage(m.chat, {
-          text: "❌ L'owner est déjà admin de sa session."
+          text: "❌ L'owner est déjà admin de sa session.",
+          contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
         }, { quoted: m });
       }
 
       sessionManager.addSudo(sessionId, sudoNumber);
       return devask.sendMessage(m.chat, {
-        text: `✅ *${sudoNumber}* ajouté aux sudo de cette session.`
+        text: `✅ *${sudoNumber}* ajouté aux sudo de cette session.`,
+        contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
       }, { quoted: m });
     }
 
@@ -129,7 +170,11 @@ export default {
     if (subCommand === "delsudo") {
       if (!isSessionOwner) {
         return devask.sendMessage(m.chat, {
-          text: "🚫 Seul l'owner peut retirer des sudo."
+          text: "🚫 Seul l'owner peut retirer des sudo.",
+          contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
         }, { quoted: m });
       }
 
@@ -139,7 +184,11 @@ export default {
           sudoNumber = m.quoted.sender.split('@')[0];
         } else {
           return devask.sendMessage(m.chat, {
-            text: `❌ Usage: ${session.prefix}session delsudo <numéro>\n\nOu répondez à un message.`
+            text: `❌ Usage: ${session.prefix}session delsudo <numéro>\n\nOu répondez à un message.`,
+            contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
           }, { quoted: m });
         }
       }
@@ -148,14 +197,26 @@ export default {
       sessionManager.removeSudo(sessionId, sudoNumber);
       
       return devask.sendMessage(m.chat, {
-        text: `✅ *${sudoNumber}* retiré des sudo de cette session.`
+        text: `✅ *${sudoNumber}* retiré des sudo de cette session.`,
+        contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
       }, { quoted: m });
     }
 
     // Commande inconnue
     return devask.sendMessage(m.chat, {
       text: `❌ Sous-commande inconnue: *${subCommand}*\n\n` +
-            `Utilisez ${session.prefix}session info pour voir les commandes disponibles.`
+            `Utilisez ${session.prefix}session info pour voir les commandes disponibles.`,
+            contextInfo: {
+          ...contextInfo,
+          mentionedJid: [m.sender]
+        }
     }, { quoted: m });
   }
+ 
+export default {
+name: "session",
+run: session
 };
