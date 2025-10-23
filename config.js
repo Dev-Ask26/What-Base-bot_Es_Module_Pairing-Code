@@ -1,88 +1,32 @@
-// config.js
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+// ==================== config.js ====================
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
+const configPath = path.join(__dirname, "config.json");
 
-// 🔥 CHEMIN CORRIGÉ - va chercher config.json à la racine
-const configPath = join(__dirname, '..', 'config.json');
-
+// Lire le config.json
 let configData;
 try {
-  configData = JSON.parse(readFileSync(configPath, 'utf8'));
-  console.log('✅ config.json chargé avec succès');
-} catch (error) {
-  console.error('❌ Erreur chargement config.json:', error);
-  // Fallback pour éviter que le bot crash
-  configData = {
-    BOT_NAME: "ASK CRASHER",
-    sessions: [
-      {
-        name: "default",
-        sessionId: "default",
-        ownerNumber: "221701234567",
-        prefix: "!",
-        mode: "public",
-        sudo: ["221701234567"]
-      }
-    ]
-  };
+  configData = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+} catch (err) {
+  console.error("❌ Erreur lecture config.json:", err);
+  process.exit(1);
 }
 
-// Configuration globale
-const globalConfig = {
-  BOT_NAME: configData.BOT_NAME,
-  SESSION_PREFIX: "!",
-  MODE: "public",
-  OWNER_NUMBER: "221701234567",
-  SUDO: ["221701234567"],
-  AUTO_READ_STATUS: true,
-  AUTO_TYPING_STATUS: false,
-  SAVE_CHATS: true,
-  BOT_IMAGES: ["https://files.catbox.moe/zq1kuc.jpg"],
-  BOT_INFO: "WHATSAPP BUG BOT"
-};
-
-// Map des sessions par numéro de propriétaire
-const sessionsByOwner = new Map();
-configData.sessions.forEach(session => {
-  sessionsByOwner.set(session.ownerNumber, session);
-  console.log(`✅ Session chargée: ${session.name} -> ${session.ownerNumber}`);
-});
-
-// Fonction pour récupérer la config d'un utilisateur
-function getUserConfig(userId) {
-  const cleanNumber = (num) => {
-    if (!num) return '';
-    return num.toString().trim().replace(/[^\d]/g, '');
-  };
-  
-  const userNumber = cleanNumber(userId.split('@')[0]);
-  
-  // Cherche d'abord une session exacte
-  if (sessionsByOwner.has(userNumber)) {
-    return sessionsByOwner.get(userNumber);
+// Fonction pour récupérer la config d'une session spécifique
+export function getSessionConfig(sessionId) {
+  const session = configData.sessions.find(s => s.sessionId === sessionId);
+  if (!session) {
+    throw new Error(`Session ${sessionId} non trouvée dans config.json`);
   }
-  
-  // Fallback: cherche avec correspondance partielle
-  for (const [ownerNumber, session] of sessionsByOwner.entries()) {
-    if (userNumber.includes(ownerNumber) || ownerNumber.includes(userNumber)) {
-      return session;
-    }
-  }
-  
-  // Retourne une config par défaut si aucune session trouvée
   return {
-    name: "default",
-    sessionId: "default",
-    ownerNumber: userNumber,
-    prefix: globalConfig.SESSION_PREFIX,
-    mode: globalConfig.MODE,
-    sudo: [userNumber]
+    ...configData,  // Garde les valeurs globales comme BOT_NAME si nécessaire
+    ...session      // Override avec les valeurs spécifiques à la session
   };
 }
 
-export { globalConfig, getUserConfig, sessionsByOwner };
-export default globalConfig;
+// Export par défaut pour compatibilité (si tu as d'autres usages)
+export default configData;
