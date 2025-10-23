@@ -1,23 +1,25 @@
-// ==================== handler.js (Multi-session) ====================
+// ==================== handler.js ====================
 import fs from "fs";
 import path from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { fileURLToPath, pathToFileURL } from "url"; // Ajout de pathToFileURL ici
+import { getSessionConfig } from "./config.js";  // Import de la fonction
 import decodeJid from "./system/decodeJid.js";
 import checkAdminOrOwner from "./system/checkAdminOrOwner.js";
-import sessionManager from "./system/sessionManager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const commands = new Map();
-global.groupCache = {};
+global.groupCache = {}; // cache pour éviter trop d'appels groupMetadata
 
 const commandsDir = path.join(__dirname, "commands");
 
+// Charger toutes les commandes dynamiquement
 async function loadCommands() {
   const files = fs.readdirSync(commandsDir);
   for (const file of files) {
     if (file.endsWith(".js")) {
       try {
+        // Supprime le module du cache avant de le recharger
         const filePath = path.join(commandsDir, file);
         const fileUrl = pathToFileURL(filePath).href;
         if (import.meta.resolve) delete import.meta.resolve[fileUrl];
@@ -34,8 +36,10 @@ async function loadCommands() {
   }
 }
 
+// Initial load
 await loadCommands();
 
+// Watcher pour recharger automatiquement les nouvelles commandes
 fs.watch(commandsDir, { recursive: false }, async (eventType, filename) => {
   if (filename && filename.endsWith(".js")) {
     console.log(`🔄 Détection de modification / ajout de commande: ${filename}`);
@@ -53,26 +57,12 @@ function getChatType(jid) {
 // ==================== Handler principal ====================
 async function handler(devask, m, msg, rawMsg) {
   try {
+    // Récupère la config spécifique à la session
+    const sessionConfig = getSessionConfig(devask.sessionId);
+
     const userId = decodeJid(m.sender);
     const chatId = decodeJid(m.chat);
     const isGroup = m.isGroup ?? chatId.endsWith("@g.us");
-
-    // ✨ NOUVEAU: Récupérer la session de l'utilisateur actuel
-    const senderNumber = userId.split('@')[0];
-    const currentSession = sessionManager.getSessionBySender(senderNumber);
-    
-    // ✨ STRICT: Si aucune session, ignorer le message
-    if (!currentSession) {
-      console.log(`⚠️ Utilisateur ${senderNumber} sans session configurée - ignoré`);
-      return; // Ne répond pas si pas de session
-    }
-    
-    const sessionPrefix = currentSession.prefix;
-    const sessionMode = currentSession.mode;
-    // ✨ CORRECTION: Utiliser name comme sessionId si sessionId n'existe pas
-    const sessionId = currentSession.sessionId || currentSession.name;
-
-    console.log(`📱 Session active: ${currentSession.name} | Préfixe: ${sessionPrefix} | Mode: ${sessionMode} | ID: ${sessionId}`);
 
     // Récupération du texte de la commande
     let body = (
@@ -101,10 +91,9 @@ async function handler(devask, m, msg, rawMsg) {
     if (!body) body = "";
     const budy = (typeof m.text === "string" ? m.text : "");
 
-    // ✨ MODIFIÉ: Utiliser le préfixe de la session
-    if (!body.startsWith(sessionPrefix)) return;
-    
-    const args = body.slice(sessionPrefix.length).trim().split(/ +/g);
+    // Vérifie le préfixe spécifique à la session
+    if (!body.startsWith(sessionConfig.prefix)) return;
+    const args = body.slice(sessionConfig.prefix.length).trim().split(/ +/g);
     const command = args.shift().toLowerCase();
     const sender = m.sender || m.key.participant || m.key.remoteJid;
 
@@ -113,13 +102,9 @@ async function handler(devask, m, msg, rawMsg) {
     let participants = [];
     let isOwner = false;
     let isAdmins = false;
-    let isSudo = false;
+    let isSudo = false; // ← Cette variable reste false si pas assignée
     let isAdminOrOwner = false;
     let isBotAdmins = false;
-
-    // ✨ NOUVEAU: Vérifier les permissions de la session
-    const isSessionOwner = currentSession && sessionManager.isSessionOwner(senderNumber, sessionId);
-    const isSessionSudo = currentSession && sessionManager.isSessionSudo(senderNumber, sessionId);
 
     if (isGroup) {
       try {
@@ -132,23 +117,25 @@ async function handler(devask, m, msg, rawMsg) {
           participants = global.groupCache[chatId].participants;
         }
 
-        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata);
+        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata, sessionConfig);
         isAdmins = perms.isAdmin;
-        isOwner = perms.isOwner || isSessionOwner;
-        isSudo = perms.isSudo || isSessionSudo;
-        isAdminOrOwner = perms.isAdminOrOwner || isSessionOwner || isSessionSudo;
+        isOwner = perms.isOwner;
+        isSudo = perms.isSudo; // ← AJOUT IMPORTANT: Assigner isSudo
+        isAdminOrOwner = perms.isAdminOrOwner;
 
-        const botPerms = await checkAdminOrOwner(devask, chatId, decodeJid(devask.user?.id), participants, metadata);
+        // Vérif bot
+        const botPerms = await checkAdminOrOwner(devask, chatId, decodeJid(devask.user?.id), participants, metadata, sessionConfig);
         isBotAdmins = botPerms.isAdmin;
       } catch (e) {
         console.error("❌ Erreur metadata:", e);
       }
     } else {
+      // ← AJOUT: Gestion des permissions en privé
       try {
-        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata);
-        isOwner = perms.isOwner || isSessionOwner;
-        isSudo = perms.isSudo || isSessionSudo;
-        isAdminOrOwner = perms.isAdminOrOwner || isSessionOwner || isSessionSudo;
+        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata, sessionConfig);
+        isOwner = perms.isOwner;
+        isSudo = perms.isSudo; // ← AJOUT: Assigner isSudo en privé aussi
+        isAdminOrOwner = perms.isAdminOrOwner;
       } catch (e) {
         console.error("❌ Erreur permissions privé:", e);
       }
@@ -159,7 +146,7 @@ async function handler(devask, m, msg, rawMsg) {
       await devask.sendMessage(chatId, { react: { text: "❌", key: m.key } });
 
       await devask.sendMessage(chatId, {
-        text: `❌ Commande *${command}* non reconnue.\n\n📌 Tapez *${sessionPrefix}menu* pour voir les options disponibles.`,
+        text: `❌ Commande *${command}* non reconnue.\n\n📌 Tapez *${sessionConfig.prefix}menu* pour voir les options disponibles.`,
         contextInfo: {
           externalAdReply: {
             title: "ASK CRASHER 🚫",
@@ -170,16 +157,16 @@ async function handler(devask, m, msg, rawMsg) {
         }
       }, { quoted: m });
 
-      return;
+      return; // stoppe l'exécution
     }
 
-    // ✨ MODIFIÉ: Vérif mode privé basée sur la session
-    if (sessionMode === "private" && !isOwner && !isSudo) {
+    // Vérif mode privé spécifique à la session
+    if (sessionConfig.mode === "private" && !isOwner && !isSudo) {
       return devask.sendMessage(chatId, {
-        text: `*🚫 Ce bot est en mode privé.*\n_Seuls l'owner et les sudo de cette session peuvent utiliser les commandes._`
+        text: "*🚫 Le bot est en mode privé.*\n_Seule l'owner et les sudo peuvent utiliser les commandes._"
       }, { quoted: rawMsg });
     }
-
+    
     const cmd = commands.get(command);
 
     // Vérifs automatiques via flags dans la commande
@@ -199,7 +186,7 @@ async function handler(devask, m, msg, rawMsg) {
       return devask.sendMessage(chatId, { text: "⚠️ Je dois être admin pour exécuter cette commande." }, { quoted: rawMsg });
     }
 
-    // Exécution de la commande avec infos de session
+    // Exécution de la commande
     await cmd.run(devask, m, msg, args, {
       isGroup,
       metadata,
@@ -212,14 +199,7 @@ async function handler(devask, m, msg, rawMsg) {
       body,
       budy,
       chatType: getChatType(chatId),
-      sender: userId,
-      // ✨ NOUVEAU: Informations de session
-      session: currentSession,
-      sessionId,
-      sessionPrefix,
-      sessionMode,
-      isSessionOwner,
-      isSessionSudo
+      sender: userId
     });
 
   } catch (err) {
