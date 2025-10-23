@@ -1,7 +1,8 @@
-// ==================== checkAdminOrOwner.js ====================
+// ==================== checkAdminOrOwner.js (Multi-session) ====================
 import decodeJid from './decodeJid.js';
+import sessionManager from './sessionManager.js';
 
-export default async function checkAdminOrOwner(devask, chatId, sender, participants = [], metadata = null, userConfig = null) {
+export default async function checkAdminOrOwner(devask, chatId, sender, participants = [], metadata = null) {
   const isGroup = chatId.endsWith('@g.us');
 
   // Nettoyage robuste des numéros
@@ -13,35 +14,43 @@ export default async function checkAdminOrOwner(devask, chatId, sender, particip
   const senderJid = decodeJid(sender);
   const senderNumber = cleanNumber(senderJid.split('@')[0]);
 
-  // Utilise les données de userConfig si fourni
-  let ownerNumbers = [];
-  let sudoNumbers = [];
+  // ✨ CORRECTION: Récupérer la session de l'utilisateur actuel
+  const currentSession = sessionManager.getSessionBySender(senderNumber);
+  
+  // ✨ NOUVEAU: Vérifications basées sur la session
+  let isSessionOwner = false;
+  let isSessionSudo = false;
+  let sessionId = null;
 
-  if (userConfig) {
-    // Configuration spécifique à l'utilisateur
-    ownerNumbers = [cleanNumber(userConfig.ownerNumber)].filter(o => o.length > 0);
-    sudoNumbers = (userConfig.sudo || []).map(s => cleanNumber(s)).filter(s => s.length > 0);
-  } else {
-    // Fallback à la config globale (pour compatibilité)
-    const config = await import('../config.js');
-    ownerNumbers = config.globalConfig.OWNER_NUMBER.split(',')
-      .map(o => cleanNumber(o))
-      .filter(o => o.length > 0);
-    sudoNumbers = (config.globalConfig.SUDO || []).map(s => cleanNumber(s)).filter(s => s.length > 0);
+  if (currentSession) {
+    sessionId = currentSession.sessionId || currentSession.name;
+    isSessionOwner = sessionManager.isSessionOwner(senderNumber, sessionId);
+    isSessionSudo = sessionManager.isSessionSudo(senderNumber, sessionId);
   }
 
+  // ✨ MODIFIÉ: Récupérer tous les owners et sudo de TOUTES les sessions pour les permissions globales
+  const allSessions = sessionManager.getAllSessions();
+  const ownerNumbers = allSessions.map(s => cleanNumber(s.ownerNumber));
+  
+  // ✨ MODIFIÉ: Récupérer tous les sudo de toutes les sessions
+  const sudoNumbers = allSessions.flatMap(s => 
+    (s.sudo || []).map(num => cleanNumber(num))
+  );
+
   console.log('🔍 Debug permissions:');
-  console.log('- Owner numbers:', ownerNumbers);
-  console.log('- Sudo numbers:', sudoNumbers);
   console.log('- Sender number:', `"${senderNumber}"`);
-  console.log('- User config:', userConfig ? 'présente' : 'absente');
+  console.log('- Session:', currentSession?.name || 'Aucune');
+  console.log('- isSessionOwner:', isSessionOwner);
+  console.log('- isSessionSudo:', isSessionSudo);
+  console.log('- Global owners:', ownerNumbers);
+  console.log('- Global sudo:', sudoNumbers);
 
-  // Comparaison plus robuste
-  const isBotOwner = ownerNumbers.some(ownerNum => ownerNum === senderNumber);
-  const isSudo = sudoNumbers.some(sudoNum => sudoNum === senderNumber);
+  // ✨ CORRECTION: Utiliser les permissions de session + permissions globales
+  const isBotOwner = ownerNumbers.some(ownerNum => ownerNum === senderNumber) || isSessionOwner;
+  const isSudo = sudoNumbers.some(sudoNum => sudoNum === senderNumber) || isSessionSudo;
 
-  console.log('- isBotOwner:', isBotOwner);
-  console.log('- isSudo:', isSudo);
+  console.log('- Final isBotOwner:', isBotOwner);
+  console.log('- Final isSudo:', isSudo);
 
   // Si pas un groupe
   if (!isGroup) {
@@ -50,11 +59,14 @@ export default async function checkAdminOrOwner(devask, chatId, sender, particip
       isOwner: isBotOwner,
       isSudo,
       isAdminOrOwner: isBotOwner || isSudo,
+      isSessionOwner,
+      isSessionSudo,
+      session: currentSession,
       participant: null
     };
   }
 
-  // Pour les groupes
+  // Gestion des groupes
   try {
     if (!metadata) metadata = await devask.groupMetadata(chatId);
     if (!participants || participants.length === 0) participants = metadata.participants || [];
@@ -65,6 +77,9 @@ export default async function checkAdminOrOwner(devask, chatId, sender, particip
       isOwner: isBotOwner,
       isSudo,
       isAdminOrOwner: isBotOwner || isSudo,
+      isSessionOwner,
+      isSessionSudo,
+      session: currentSession,
       participant: null
     };
   }
@@ -91,6 +106,9 @@ export default async function checkAdminOrOwner(devask, chatId, sender, particip
     isOwner: isOwnerUser,
     isSudo,
     isAdminOrOwner: isAdmin || isOwnerUser || isSudo,
+    isSessionOwner,
+    isSessionSudo,
+    session: currentSession,
     participant
   };
 }
