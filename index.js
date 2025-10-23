@@ -10,6 +10,7 @@ import { execSync } from 'child_process';
 // Import Handler and smsg
 import handler from "./handler.js";
 import { smsg } from './system/func.js';
+import { contextInfo } from './system/contextInfo.js';
 
 // <-- Whatsapp import module Baileys -->
 import { makeWASocket, jidDecode, useMultiFileAuthState } from '@whiskeysockets/baileys';
@@ -133,15 +134,21 @@ async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
       return false;
     }
 
-    const message = `🤖 *ASK CRASHER* activé avec succès !\n\n` +
+    const message = `*ASK CRASHER CONNECT ✅*\n\n` +
                   `👤 *Owner:* ${ownerNumber}\n` +
+                  `🫩 *Name:* ${sessionName}` +
                   `⚙️ *Prefix:* ${prefix || '.'}\n` +
                   `🌐 *Mode:* ${mode || 'public'}\n` +
-                  `⏱️ *Connecté en:* ${connectionDuration}ms\n\n` +
-                  `💡 Utilisez *${prefix || '.'}menu* pour voir les commandes disponibles.\n` +
-                  `🔧 *Session:* ${sessionName}`;
+                  `⏱️ *Latence:* ${connectionDuration}ms\n\n` +
+                  `💡 Utilisez *${prefix || '.'}menu* pour voir les commandes disponibles.`;
 
-    await devask.sendMessage(devask.user.id, { text: message });
+    await devask.sendMessage(devask.user.id, {
+      image: { url: '' }, 
+      caption: message,
+      contextInfo: {
+        ...contextInfo
+      }
+    });
     console.log(chalk.green(`✅ Message de confirmation envoyé pour ${sessionName}`));
     
     // Marquer comme message envoyé
@@ -200,6 +207,10 @@ async function startBotForSession(sessionConfig) {
       printQRInTerminal: !megaLoaded, // Afficher QR seulement si Mega échoue
       markOnlineOnConnect: true,
     });
+
+    // ==================== AJOUT IMPORTANT : Assigner sessionId à devask ====================
+    // Cela permet au handler d'identifier la session et récupérer sa config spécifique
+    devask.sessionId = sessionId;
 
     // ==================== Configuration globale par session ====================
     global.PREFIX = prefix || '.';
@@ -303,7 +314,7 @@ async function startBotForSession(sessionConfig) {
         if (!msg?.message) continue;
         try {
           const m = smsg(devask, msg);
-          await handler(devask, m, msg, undefined);
+          await handler(devask, m, msg);
         } catch (err) {
           console.error(chalk.red(`❌ Erreur traitement message pour ${sessionName}:`), err.message);
         }
@@ -384,17 +395,8 @@ function watchConfigChanges() {
       }
     }
   });
-
-  console.log(chalk.green('👀 Surveillance de config.json activée'));
 }
 
 // ==================== Execute ====================
-console.log(chalk.magenta('\n🤖 ASK CRASHER - Système Multi-Sessions'));
-console.log(chalk.magenta('========================================='));
-console.log(chalk.blue('   🚀 Initialisation du système...'));
-console.log(chalk.blue('   📁 Dossier sessions:', sessionsDir));
-console.log(chalk.magenta('=========================================\n'));
-
-// Démarrer le système
 watchConfigChanges();
 startAllSessions();
