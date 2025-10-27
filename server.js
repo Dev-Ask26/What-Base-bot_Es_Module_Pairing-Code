@@ -3,7 +3,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fetch from 'node-fetch';
+import pairRouter from './pair.js'; // ton fichier pair.js
 
 // Import des fonctions depuis index.js
 import { activeSessions, loadConfig, startBotForSession } from './index.js';
@@ -14,50 +14,20 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const __path = process.cwd();
+
 // Middleware
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// ==================== KEEP ALIVE SYSTEM ====================
-function startKeepAlive() {
-  console.log('🫀 Initialisation du système Keep-Alive...');
-  
-  // Ping interne toutes les 4 minutes
-  const keepAliveInterval = setInterval(async () => {
-    try {
-      const timestamp = new Date().toISOString();
-      console.log(`🫀 Keep-alive heartbeat - ${timestamp}`);
-      
-      // Vérifier le statut des sessions
-      const connectedSessions = Array.from(activeSessions.values()).filter(s => s.connected).length;
-      console.log(`📊 Sessions connectées: ${connectedSessions}/${activeSessions.size}`);
-      
-    } catch (error) {
-      console.log('❌ Keep-alive error:', error.message);
-    }
-  }, 4 * 60 * 1000); // 4 minutes
-
-  // Auto-ping externe si on est sur Render
-  if (process.env.RENDER) {
-    setInterval(async () => {
-      try {
-        const appUrl = `https://${process.env.RENDER_SERVICE_NAME}.onrender.com` || `http://localhost:${PORT}`;
-        const response = await fetch(`${appUrl}/api/ping`);
-        console.log(`🌐 External ping: ${response.status} - ${appUrl}`);
-      } catch (error) {
-        console.log('❌ External ping failed:', error.message);
-      }
-    }, 3 * 60 * 1000); // 3 minutes
-  }
-
-  return keepAliveInterval;
-}
+// ==================== Chemins des fichiers ====================
+const databaseDir = path.join(__dirname, 'database');
+const configPath = path.join(databaseDir, 'config.json');
 
 // ==================== Fonctions Helper ====================
 
 function saveConfig(config) {
   try {
-    const configPath = path.join(__dirname, 'config.json');
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     return true;
   } catch (error) {
@@ -66,13 +36,136 @@ function saveConfig(config) {
   }
 }
 
-// ==================== Routes ====================
+// Fonction pour sauvegarder dans les fichiers JSON utilisateur
+function saveUserConfig(file, data) {
+  try {
+    const filePath = path.join(databaseDir, file);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error(`❌ Erreur sauvegarde ${file}:`, error);
+    return false;
+  }
+}
 
+// Fonction pour charger les configurations utilisateur
+function loadUserConfig(file) {
+  try {
+    const filePath = path.join(databaseDir, file);
+    if (!fs.existsSync(filePath)) {
+      return {};
+    }
+    const data = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error(`❌ Erreur lecture ${file}:`, error);
+    return {};
+  }
+}
+
+// Fonction pour formater le numéro en JID
+function formatToJid(number) {
+  const cleanNumber = number.replace(/[^\d]/g, '');
+  return cleanNumber + '@s.whatsapp.net';
+}
+
+// ==================== Routes ====================
 app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/deploye', (req, res) => {
     res.sendFile(path.join(__dirname, 'deploye.html'));
 });
 
-// ==================== API Routes ====================
+// Route HTML principale
+app.get('/pair', (req, res) => {
+    res.sendFile(path.join(__path, 'pair.html'));
+});
+
+// Route API WhatsApp (pair)
+app.use('/pair', pairRouter);
+
+// ==================== API Routes pour configurations utilisateur ====================
+
+// API pour sauvegarder owner
+app.post('/api/save-owner', (req, res) => {
+  try {
+    const { userJid, ownerNumber } = req.body;
+    const owners = loadUserConfig('owner.json');
+    owners[userJid] = ownerNumber;
+    
+    if (saveUserConfig('owner.json', owners)) {
+      res.json({ success: true });
+    } else {
+      throw new Error('Erreur sauvegarde owner');
+    }
+  } catch (error) {
+    console.error('❌ Erreur sauvegarde owner:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// API pour sauvegarder prefix
+app.post('/api/save-prefix', (req, res) => {
+  try {
+    const { userJid, prefix } = req.body;
+    const prefixes = loadUserConfig('prefix.json');
+    prefixes[userJid] = prefix;
+    
+    if (saveUserConfig('prefix.json', prefixes)) {
+      res.json({ success: true });
+    } else {
+      throw new Error('Erreur sauvegarde prefix');
+    }
+  } catch (error) {
+    console.error('❌ Erreur sauvegarde prefix:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// API pour sauvegarder mode
+app.post('/api/save-mode', (req, res) => {
+  try {
+    const { userJid, mode } = req.body;
+    const modes = loadUserConfig('mode.json');
+    modes[userJid] = mode;
+    
+    if (saveUserConfig('mode.json', modes)) {
+      res.json({ success: true });
+    } else {
+      throw new Error('Erreur sauvegarde mode');
+    }
+  } catch (error) {
+    console.error('❌ Erreur sauvegarde mode:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// API pour sauvegarder sudo
+app.post('/api/save-sudo', (req, res) => {
+  try {
+    const { userJid, sudoNumbers } = req.body;
+    const sudo = loadUserConfig('sudo.json');
+    
+    // Convertir les numéros en format JID
+    sudo[userJid] = sudoNumbers.map(num => {
+      const cleanNum = num.replace(/[^\d]/g, '');
+      return cleanNum + '@s.whatsapp.net';
+    });
+    
+    if (saveUserConfig('sudo.json', sudo)) {
+      res.json({ success: true });
+    } else {
+      throw new Error('Erreur sauvegarde sudo');
+    }
+  } catch (error) {
+    console.error('❌ Erreur sauvegarde sudo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== API Routes principales ====================
 
 // API pour récupérer la configuration ET le statut des sessions
 app.get('/api/config', (req, res) => {
@@ -96,65 +189,12 @@ app.get('/api/config', (req, res) => {
             ...config,
             sessions: sessionsWithStatus,
             activeSessionsCount: activeSessions.size,
-            totalSessions: config.sessions.length,
-            serverUptime: process.uptime(),
-            lastKeepAlive: new Date().toISOString()
+            totalSessions: config.sessions.length
         });
     } catch (error) {
         console.error('❌ Erreur lecture config:', error);
         res.status(500).json({ 
             error: 'Erreur de lecture de la configuration'
-        });
-    }
-});
-
-// API PING pour keep-alive
-app.get('/api/ping', (req, res) => {
-    res.json({ 
-        status: 'alive', 
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        activeSessions: activeSessions.size,
-        connectedSessions: Array.from(activeSessions.values()).filter(s => s.connected).length,
-        memory: process.memoryUsage(),
-        environment: process.env.RENDER ? 'render' : 'local'
-    });
-});
-
-// API de santé améliorée
-app.get('/api/health', (req, res) => {
-    try {
-        const config = loadConfig();
-        const activeSessionsArray = Array.from(activeSessions.values());
-        
-        const stats = {
-            connected: activeSessionsArray.filter(s => s.connected).length,
-            connecting: activeSessionsArray.filter(s => !s.connected && !s.qrCode).length,
-            qrRequired: activeSessionsArray.filter(s => s.qrCode).length,
-            messageSent: activeSessionsArray.filter(s => s.performance?.welcomeMessageSent).length,
-            totalMessages: activeSessionsArray.reduce((sum, s) => sum + (s.performance?.messageCount || 0), 0)
-        };
-
-        res.json({
-            status: 'OK',
-            message: 'ASK CRASHER Server Running',
-            timestamp: new Date().toISOString(),
-            uptime: process.uptime(),
-            keepAlive: 'active',
-            sessions: {
-                active: activeSessions.size,
-                total: config.sessions.length,
-                stats: stats
-            },
-            memory: process.memoryUsage(),
-            nodeVersion: process.version,
-            environment: process.env.RENDER ? 'render' : 'local'
-        });
-    } catch (error) {
-        console.error('❌ Erreur health check:', error);
-        res.status(500).json({ 
-            status: 'ERROR',
-            error: 'Erreur lors du health check'
         });
     }
 });
@@ -197,7 +237,7 @@ app.post('/api/config', async (req, res) => {
                 console.log(`🎯 Détection de ${newSessions.length} nouvelle(s) session(s) à démarrer:`);
                 
                 for (const session of newSessions) {
-                    console.log(`   ➕ Démarrage de: ${session.name} (${session.ownerNumber})`);
+                    console.log(`   ➕ Démarrage de: ${session.name}`);
                     try {
                         await startBotForSession(session);
                         startedCount++;
@@ -215,8 +255,7 @@ app.post('/api/config', async (req, res) => {
                 sessionsCount: newConfig.sessions.length,
                 newSessionsStarted: startedCount,
                 newSessionsFailed: failedCount,
-                activeSessions: Array.from(activeSessions.keys()),
-                keepAlive: 'active'
+                activeSessions: Array.from(activeSessions.keys())
             });
         } else {
             throw new Error('Échec de la sauvegarde');
@@ -388,9 +427,7 @@ app.get('/api/sessions/active', (req, res) => {
                 connecting: sessions.filter(s => !s.connected && !s.hasQr).length,
                 qrRequired: sessions.filter(s => s.hasQr).length,
                 messageSent: sessions.filter(s => s.welcomeMessageSent).length
-            },
-            serverUptime: process.uptime(),
-            lastUpdate: new Date().toISOString()
+            }
         });
     } catch (error) {
         console.error('❌ Erreur récupération sessions:', error);
@@ -476,6 +513,42 @@ app.get('/api/session/:sessionName/logs', (req, res) => {
     }
 });
 
+// API de santé du serveur avec statistiques détaillées
+app.get('/api/health', (req, res) => {
+    try {
+        const config = loadConfig();
+        const activeSessionsArray = Array.from(activeSessions.values());
+        
+        const stats = {
+            connected: activeSessionsArray.filter(s => s.connected).length,
+            connecting: activeSessionsArray.filter(s => !s.connected && !s.qrCode).length,
+            qrRequired: activeSessionsArray.filter(s => s.qrCode).length,
+            messageSent: activeSessionsArray.filter(s => s.performance?.welcomeMessageSent).length,
+            totalMessages: activeSessionsArray.reduce((sum, s) => sum + (s.performance?.messageCount || 0), 0)
+        };
+
+        res.json({
+            status: 'OK',
+            message: 'ASK CRASHER Server Running',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            sessions: {
+                active: activeSessions.size,
+                total: config.sessions.length,
+                stats: stats
+            },
+            memory: process.memoryUsage(),
+            nodeVersion: process.version
+        });
+    } catch (error) {
+        console.error('❌ Erreur health check:', error);
+        res.status(500).json({ 
+            status: 'ERROR',
+            error: 'Erreur lors du health check'
+        });
+    }
+});
+
 // API pour les statistiques globales
 app.get('/api/stats', (req, res) => {
     try {
@@ -487,8 +560,7 @@ app.get('/api/stats', (req, res) => {
                 totalSessions: config.sessions.length,
                 activeSessions: activeSessions.size,
                 uptime: process.uptime(),
-                serverStartTime: new Date(Date.now() - process.uptime() * 1000).toISOString(),
-                keepAlive: 'active'
+                serverStartTime: new Date(Date.now() - process.uptime() * 1000).toISOString()
             },
             sessions: {
                 connected: activeSessionsArray.filter(s => s.connected).length,
@@ -522,13 +594,16 @@ app.use((req, res) => {
         availableEndpoints: [
             'GET  / - Page de déploiement',
             'GET  /api/config - Configuration',
-            'GET  /api/ping - Keep-alive',
-            'GET  /api/health - Santé du serveur',
             'POST /api/config - Sauvegarder configuration',
+            'POST /api/save-owner - Sauvegarder owner',
+            'POST /api/save-prefix - Sauvegarder prefix',
+            'POST /api/save-mode - Sauvegarder mode',
+            'POST /api/save-sudo - Sauvegarder sudo',
             'GET  /api/session/:name/status - Statut session',
             'GET  /api/session/:name/mega-status - Statut Mega',
             'GET  /api/session/:name/connection-status - Statut connexion complète',
             'GET  /api/sessions/active - Sessions actives',
+            'GET  /api/health - Santé du serveur',
             'GET  /api/stats - Statistiques'
         ]
     });
@@ -549,14 +624,11 @@ app.listen(PORT, () => {
     console.log(`=========================================`);
     console.log(`🚀 Déploiement: http://localhost:${PORT}`);
     console.log(`🔧 API Config: http://localhost:${PORT}/api/config`);
+    console.log(`👤 Multi-utilisateur: Système activé`);
     console.log(`📊 Sessions: http://localhost:${PORT}/api/sessions/active`);
     console.log(`❤️  Health: http://localhost:${PORT}/api/health`);
-    console.log(`🫀 Keep-alive: http://localhost:${PORT}/api/ping`);
     console.log(`📈 Stats: http://localhost:${PORT}/api/stats`);
     console.log(`=========================================\n`);
-    
-    // Démarrer le système keep-alive
-    startKeepAlive();
 });
 
 export default app;
