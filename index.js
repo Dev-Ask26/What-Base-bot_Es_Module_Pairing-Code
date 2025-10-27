@@ -220,7 +220,7 @@ async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
                   `💡 Utilisez *${prefix || '.'}menu* pour voir les commandes disponibles.`;
 
     await devask.sendMessage(devask.user.id, {
-      image: { url: '' }, 
+      image: { url: 'https://files.catbox.moe/frbcih.jpg' }, 
       caption: message,
       contextInfo: {
         ...contextInfo
