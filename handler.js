@@ -1,15 +1,13 @@
 // ==================== handler.js ====================
 import fs from "fs";
 import path from "path";
-import { fileURLToPath, pathToFileURL } from "url"; // Ajout de pathToFileURL ici
-import { getSessionConfig } from "./config.js";  // Import de la fonction
+import { fileURLToPath, pathToFileURL } from "url";
 import decodeJid from "./system/decodeJid.js";
-import checkAdminOrOwner from "./system/checkAdminOrOwner.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const commands = new Map();
-global.groupCache = {}; // cache pour éviter trop d'appels groupMetadata
+global.groupCache = {};
 
 const commandsDir = path.join(__dirname, "commands");
 
@@ -19,7 +17,6 @@ async function loadCommands() {
   for (const file of files) {
     if (file.endsWith(".js")) {
       try {
-        // Supprime le module du cache avant de le recharger
         const filePath = path.join(commandsDir, file);
         const fileUrl = pathToFileURL(filePath).href;
         if (import.meta.resolve) delete import.meta.resolve[fileUrl];
@@ -47,6 +44,66 @@ fs.watch(commandsDir, { recursive: false }, async (eventType, filename) => {
   }
 });
 
+// ========== FONCTIONS MULTI-UTILISATEUR ISOLÉES ==========
+
+// Charger les configurations utilisateur
+function loadUserConfig(file) {
+  try {
+    const data = fs.readFileSync(`./database/${file}`, "utf8");
+    return JSON.parse(data);
+  } catch (error) {
+    console.error(`❌ Erreur lecture ${file}:`, error);
+    return {};
+  }
+}
+
+// Sauvegarder les configurations utilisateur
+function saveUserConfig(file, data) {
+  try {
+    fs.writeFileSync(`./database/${file}`, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error(`❌ Erreur sauvegarde ${file}:`, error);
+    return false;
+  }
+}
+
+// Obtenir le préfixe d'un utilisateur
+function getUserPrefix(userId) {
+  const prefixes = loadUserConfig("prefix.json");
+  return prefixes[userId] || "."; // Préfixe par défaut
+}
+
+// Obtenir le mode d'un utilisateur
+function getUserMode(userId) {
+  const modes = loadUserConfig("mode.json");
+  return modes[userId] || "public"; // Mode par défaut
+}
+
+// Vérifier si un utilisateur est sudo (pour un owner spécifique)
+function isUserSudo(userId, ownerId = null) {
+  const sudoData = loadUserConfig("sudo.json");
+  
+  // Si on cherche si userId est sudo d'un owner spécifique
+  if (ownerId) {
+    return sudoData[ownerId]?.includes(userId) || false;
+  }
+  
+  // Sinon, vérifier si userId est sudo de n'importe quel owner
+  for (const owner in sudoData) {
+    if (sudoData[owner].includes(userId)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Obtenir la liste des sudo d'un utilisateur
+function getUserSudoList(userId) {
+  const sudoData = loadUserConfig("sudo.json");
+  return sudoData[userId] || [];
+}
+
 function getChatType(jid) {
   if (jid.endsWith("@g.us")) return "group";
   if (jid.endsWith("@s.whatsapp.net")) return "dm";
@@ -57,13 +114,9 @@ function getChatType(jid) {
 // ==================== Handler principal ====================
 async function handler(devask, m, msg, rawMsg) {
   try {
-    // Récupère la config spécifique à la session
-    const sessionConfig = getSessionConfig(devask.sessionId);
-
     const userId = decodeJid(m.sender);
     const chatId = decodeJid(m.chat);
-    const isGroup = m.isGroup ?? chatId.endsWith("@g.us");
-
+    
     // Récupération du texte de la commande
     let body = (
       m.mtype === "conversation" ? m.message.conversation :
@@ -91,115 +144,103 @@ async function handler(devask, m, msg, rawMsg) {
     if (!body) body = "";
     const budy = (typeof m.text === "string" ? m.text : "");
 
-    // Vérifie le préfixe spécifique à la session
-    if (!body.startsWith(sessionConfig.prefix)) return;
-    const args = body.slice(sessionConfig.prefix.length).trim().split(/ +/g);
-    const command = args.shift().toLowerCase();
-    const sender = m.sender || m.key.participant || m.key.remoteJid;
+    // ========== CONFIGURATION PERSONNELLE DE L'UTILISATEUR ==========
+    const userPrefix = getUserPrefix(userId);
+    const userMode = getUserMode(userId);
+    const userSudo = isUserSudo(userId); // Vérifie si l'utilisateur est sudo de n'importe qui
+    const userSudoList = getUserSudoList(userId); // Liste des sudo de CET utilisateur
 
-    // -------- Récupération metadata & permissions --------
-    let metadata = null;
+    // Vérification avec le préfixe PERSONNEL de l'utilisateur
+    if (!body.startsWith(userPrefix)) return;
+    
+    const args = body.slice(userPrefix.length).trim().split(/ +/g);
+    const command = args.shift().toLowerCase();
+
+    // ========== GESTION DES PERMISSIONS ==========
+    const botNumber = decodeJid(devask.user?.id);
+    
+    // Détermination des permissions
+    const isOwner = [botNumber].includes(m.sender) || m.isOwner || false;
+    const isSudo = userSudo; // Utilise le statut sudo global
+    const isGroup = m.chat.endsWith('@g.us');
+    
+    let groupMetadata = {};
+    let participant_bot = {};
+    let groupName = "";
     let participants = [];
-    let isOwner = false;
-    let isAdmins = false;
-    let isSudo = false; // ← Cette variable reste false si pas assignée
-    let isAdminOrOwner = false;
     let isBotAdmins = false;
+    let isAdmins = false;
 
     if (isGroup) {
       try {
-        if (!global.groupCache[chatId]) {
-          metadata = await devask.groupMetadata(chatId);
-          participants = metadata.participants || [];
-          global.groupCache[chatId] = { metadata, participants };
-        } else {
-          metadata = global.groupCache[chatId].metadata;
-          participants = global.groupCache[chatId].participants;
-        }
-
-        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata, sessionConfig);
-        isAdmins = perms.isAdmin;
-        isOwner = perms.isOwner;
-        isSudo = perms.isSudo; // ← AJOUT IMPORTANT: Assigner isSudo
-        isAdminOrOwner = perms.isAdminOrOwner;
-
-        // Vérif bot
-        const botPerms = await checkAdminOrOwner(devask, chatId, decodeJid(devask.user?.id), participants, metadata, sessionConfig);
-        isBotAdmins = botPerms.isAdmin;
-      } catch (e) {
-        console.error("❌ Erreur metadata:", e);
-      }
-    } else {
-      // ← AJOUT: Gestion des permissions en privé
-      try {
-        const perms = await checkAdminOrOwner(devask, chatId, userId, participants, metadata, sessionConfig);
-        isOwner = perms.isOwner;
-        isSudo = perms.isSudo; // ← AJOUT: Assigner isSudo en privé aussi
-        isAdminOrOwner = perms.isAdminOrOwner;
-      } catch (e) {
-        console.error("❌ Erreur permissions privé:", e);
+        groupMetadata = await devask.groupMetadata(m.chat);
+        participant_bot = groupMetadata.participants.find((v) => v.id === botNumber) || {};
+        groupName = groupMetadata.subject || "";
+        participants = groupMetadata.participants || [];
+        
+        // Vérification des admins
+        isBotAdmins = participant_bot?.admin !== null && participant_bot?.admin !== undefined;
+        
+        const senderParticipant = participants.find(p => p.id === m.sender) || {};
+        isAdmins = senderParticipant?.admin !== null && senderParticipant?.admin !== undefined;
+      } catch (error) {
+        console.error("❌ Erreur group metadata:", error);
       }
     }
 
     // Vérif si commande existe
     if (!commands.has(command)) {
       await devask.sendMessage(chatId, { react: { text: "❌", key: m.key } });
-
       await devask.sendMessage(chatId, {
-        text: `❌ Commande *${command}* non reconnue.\n\n📌 Tapez *${sessionConfig.prefix}menu* pour voir les options disponibles.`,
-        contextInfo: {
-          externalAdReply: {
-            title: "ASK CRASHER 🚫",
-            body: "WHATSAPP BUG BOT",
-            thumbnailUrl: "https://files.catbox.moe/zq1kuc.jpg",
-            sourceUrl: "https://whatsapp.com/channel/0029VaiPkRPLY6d0qEX50e2k"
-          }
-        }
+        text: `❌ Commande *${command}* non reconnue.\n\n📌 Tapez *${userPrefix}menu* pour voir les options disponibles.\n🔧 Votre préfixe personnel: *${userPrefix}*`
       }, { quoted: m });
-
-      return; // stoppe l'exécution
+      return;
     }
 
-    // Vérif mode privé spécifique à la session
-    if (sessionConfig.mode === "private" && !isOwner && !isSudo) {
+    // Vérif mode PERSONNEL (privé/public)
+    if (userMode === "private" && !isOwner && !isSudo) {
       return devask.sendMessage(chatId, {
-        text: "*🚫 Le bot est en mode privé.*\n_Seule l'owner et les sudo peuvent utiliser les commandes._"
+        text: `*🚫 Votre session est en mode privé.*\n_Seule l'owner et les sudo peuvent utiliser vos commandes._\n🔧 Votre mode personnel: *${userMode}*`
       }, { quoted: rawMsg });
     }
-    
+
     const cmd = commands.get(command);
 
-    // Vérifs automatiques via flags dans la commande
-    if (cmd.ownerOnly && !isOwner) {
-      return devask.sendMessage(chatId, { text: "🚫 Commande réservée au propriétaire." }, { quoted: rawMsg });
-    }
-    if (cmd.sudoOnly && !isSudo && !isOwner) {
-      return devask.sendMessage(chatId, { text: "🚫 Commande réservée aux sudo/owner." }, { quoted: rawMsg });
-    }
-    if (cmd.groupOnly && !isGroup) {
-      return devask.sendMessage(chatId, { text: "❌ Cette commande doit être utilisée dans un groupe." }, { quoted: rawMsg });
-    }
-    if (cmd.adminOnly && !isAdmins) {
-      return devask.sendMessage(chatId, { text: "⛔ Seuls les admins peuvent utiliser cette commande." }, { quoted: rawMsg });
-    }
-    if (cmd.botAdminOnly && !isBotAdmins) {
-      return devask.sendMessage(chatId, { text: "⚠️ Je dois être admin pour exécuter cette commande." }, { quoted: rawMsg });
-    }
-
-    // Exécution de la commande
+    // ========== EXÉCUTION DE LA COMMANDE ==========
     await cmd.run(devask, m, msg, args, {
+      // Permissions
       isGroup,
-      metadata,
-      participants,
       isAdmins,
       isOwner,
       isSudo,
-      isAdminOrOwner,
+      isAdminOrOwner: isAdmins || isOwner || isSudo,
       isBotAdmins,
+      
+      // Métadonnées groupe
+      metadata: groupMetadata,
+      participants,
+      participant_bot,
+      groupName,
+      
+      // Message
       body,
       budy,
       chatType: getChatType(chatId),
-      sender: userId
+      sender: userId,
+      
+      // ⭐ CONFIGURATION PERSONNELLE DE L'UTILISATEUR
+      userPrefix,        // Son préfixe à lui
+      userMode,          // Son mode à lui  
+      userSudo,          // Son statut sudo global
+      userSudoList,      // Sa liste personnelle de sudo
+      
+      // Fonctions de gestion
+      loadUserConfig,
+      saveUserConfig,
+      getUserPrefix,
+      getUserMode,
+      isUserSudo,
+      getUserSudoList
     });
 
   } catch (err) {
