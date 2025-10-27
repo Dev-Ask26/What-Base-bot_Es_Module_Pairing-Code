@@ -1,8 +1,8 @@
-import mega from "megajs";
+import { Storage } from "megajs";
 
 const auth = {
-    email: 'domkaya4@gmail.com',   // use your real valid mega account email
-    password: 'Kaya2005@',  // use your real valid mega account password
+    email: 'domkaya4@gmail.com',
+    password: 'Kaya2005@',
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246'
 };
 
@@ -13,10 +13,15 @@ const upload = (data, name) => {
                 throw new Error("Missing required authentication fields");
             }
 
-            console.log("Using auth:", auth); // Debugging line
+            console.log("Using auth:", auth);
 
-            const storage = new mega.Storage(auth, () => {
-                data.pipe(storage.upload({ name: name, allowUploadBuffering: true }));
+            // Utilisez Storage directement au lieu de mega.Storage
+            const storage = new Storage(auth, () => {
+                data.pipe(storage.upload({ 
+                    name: name, 
+                    allowUploadBuffering: true 
+                }));
+                
                 storage.on("add", (file) => {
                     file.link((err, url) => {
                         if (err) {
