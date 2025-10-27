@@ -662,6 +662,78 @@
         }
     }
 
+    // Fonction pour formater le numéro en JID
+    function formatToJid(number) {
+        const cleanNumber = number.replace(/[^\d]/g, '');
+        return cleanNumber + '@s.whatsapp.net';
+    }
+
+    // Fonction pour sauvegarder dans les fichiers JSON séparés
+    async function saveUserConfigurations(userName, userData) {
+        try {
+            // Convertir le ownerNumber en JID
+            const ownerJid = formatToJid(userData.ownerNumber);
+            
+            // Sauvegarder dans owner.json
+            const ownerResponse = await fetch('/api/save-owner', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userJid: ownerJid,
+                    ownerNumber: ownerJid
+                })
+            });
+
+            // Sauvegarder dans prefix.json
+            const prefixResponse = await fetch('/api/save-prefix', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userJid: ownerJid,
+                    prefix: userData.prefix
+                })
+            });
+
+            // Sauvegarder dans mode.json
+            const modeResponse = await fetch('/api/save-mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userJid: ownerJid,
+                    mode: userData.mode
+                })
+            });
+
+            // Sauvegarder dans sudo.json
+            const sudoResponse = await fetch('/api/save-sudo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userJid: ownerJid,
+                    sudoNumbers: userData.sudoNumbers
+                })
+            });
+
+            return {
+                success: true,
+                userJid: ownerJid,
+                messages: [
+                    '✅ Configuration owner sauvegardée',
+                    '✅ Configuration prefix sauvegardée', 
+                    '✅ Configuration mode sauvegardée',
+                    '✅ Configuration sudo sauvegardée'
+                ]
+            };
+
+        } catch (error) {
+            console.error('Erreur sauvegarde configurations:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
     async function checkSessionStatus(sessionName, maxAttempts = 40) {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
@@ -819,13 +891,10 @@
                 ? sudoNumbers.split(',').map(num => num.trim()).filter(num => num)
                 : [];
 
+            // 1. Sauvegarder la session dans config.json
             const newSession = {
                 name: userName,
                 sessionId: sessionId,
-                ownerNumber: ownerNumber,
-                sudo: sudoArray,
-                prefix: prefix,
-                mode: mode,
                 deployedAt: new Date().toISOString()
             };
 
@@ -852,6 +921,28 @@
             if (result.success) {
                 showAlert('🔄 Configuration sauvegardée. Démarrage du bot en cours...', 'info');
                 
+                // 2. Sauvegarder les configurations utilisateur dans les fichiers séparés
+                const userConfig = {
+                    ownerNumber: ownerNumber,
+                    prefix: prefix,
+                    mode: mode,
+                    sudoNumbers: sudoArray
+                };
+
+                const userConfigResult = await saveUserConfigurations(userName, userConfig);
+
+                if (!userConfigResult.success) {
+                    throw new Error('Erreur sauvegarde configurations: ' + userConfigResult.error);
+                }
+
+                // Afficher les messages de succès
+                showAlert('🎉 Session déployée avec succès!', 'success');
+                showAlert(`👤 JID utilisateur: ${userConfigResult.userJid}`, 'info');
+                
+                userConfigResult.messages.forEach(msg => {
+                    showAlert(msg, 'info');
+                });
+
                 const deploymentResult = await checkSessionStatus(userName);
                 
                 if (deploymentResult.success) {
