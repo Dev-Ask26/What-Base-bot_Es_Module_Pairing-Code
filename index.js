@@ -41,8 +41,12 @@ try {
 const sessionsDir = path.join(__dirname, 'sessions');
 if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir, { recursive: true });
 
+// ==================== Database Directory ====================
+const databaseDir = path.join(__dirname, 'database');
+if (!fs.existsSync(databaseDir)) fs.mkdirSync(databaseDir, { recursive: true });
+
 // ==================== Config File Path ====================
-const configPath = path.join(__dirname, 'config.json');
+const configPath = path.join(databaseDir, 'config.json'); // ✅ Déplacé vers database/
 
 // ==================== Stockage des sessions actives ====================
 const activeSessions = new Map();
@@ -51,8 +55,12 @@ const activeSessions = new Map();
 function loadConfig() {
   try {
     if (!fs.existsSync(configPath)) {
-      console.log("❌ Fichier config.json non trouvé");
-      return { BOT_NAME: 'ASK CRASHER', sessions: [] };
+      console.log("❌ Fichier config.json non trouvé dans database/");
+      // Créer un fichier config.json par défaut
+      const defaultConfig = { BOT_NAME: 'ASK CRASHER', sessions: [] };
+      fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+      console.log("✅ Fichier config.json créé dans database/");
+      return defaultConfig;
     }
 
     const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -61,6 +69,71 @@ function loadConfig() {
     console.error('❌ Erreur lors du chargement de config.json:', error);
     return { BOT_NAME: 'ASK CRASHER', sessions: [] };
   }
+}
+
+// ==================== Charger les configurations utilisateur ====================
+function loadUserConfig(file) {
+  try {
+    const filePath = path.join(databaseDir, file);
+    if (!fs.existsSync(filePath)) {
+      // Créer le fichier s'il n'existe pas
+      fs.writeFileSync(filePath, JSON.stringify({}, null, 2));
+      console.log(chalk.green(`✅ Fichier ${file} créé dans database/`));
+      return {};
+    }
+    const data = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error(`❌ Erreur lecture ${file}:`, error);
+    return {};
+  }
+}
+
+// ==================== Obtenir la configuration d'un utilisateur ====================
+function getUserConfig(sessionName) {
+  // Pour la rétrocompatibilité, on essaie d'abord de récupérer depuis l'ancien format
+  const config = loadConfig();
+  const session = config.sessions.find(s => s.name === sessionName);
+  
+  if (session && session.ownerNumber) {
+    // Ancien format détecté - utiliser les données directement
+    console.log(chalk.yellow(`⚠️ Session ${sessionName} utilise l'ancien format, migration recommandée`));
+    return {
+      ownerNumber: session.ownerNumber,
+      prefix: session.prefix || '.',
+      mode: session.mode || 'public',
+      sudo: session.sudo || []
+    };
+  }
+  
+  // Nouveau format - charger depuis les fichiers JSON séparés
+  const owners = loadUserConfig('owner.json');
+  const prefixes = loadUserConfig('prefix.json');
+  const modes = loadUserConfig('mode.json');
+  const sudo = loadUserConfig('sudo.json');
+  
+  // Trouver le JID correspondant à cette session
+  // Pour l'instant, on utilise une logique simple de correspondance
+  const userJid = Object.keys(owners).find(jid => jid.includes(sessionName)) || 
+                  Object.keys(prefixes).find(jid => jid.includes(sessionName));
+  
+  if (userJid) {
+    return {
+      ownerNumber: owners[userJid] || userJid,
+      prefix: prefixes[userJid] || '.',
+      mode: modes[userJid] || 'public',
+      sudo: sudo[userJid] || []
+    };
+  }
+  
+  // Fallback aux valeurs par défaut
+  console.log(chalk.yellow(`⚠️ Configuration non trouvée pour ${sessionName}, utilisation des valeurs par défaut`));
+  return {
+    ownerNumber: sessionName, // Fallback
+    prefix: '.',
+    mode: 'public',
+    sudo: []
+  };
 }
 
 // ==================== Charger session Mega pour un utilisateur ====================
@@ -115,7 +188,11 @@ async function loadSessionFromMega(sessionId, sessionName) {
 // ==================== Envoyer un message de confirmation ====================
 async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
   try {
-    const { ownerNumber, prefix, mode, name: sessionName } = sessionConfig;
+    const { name: sessionName } = sessionConfig;
+    
+    // Charger la configuration utilisateur
+    const userConfig = getUserConfig(sessionName);
+    const { ownerNumber, prefix, mode } = userConfig;
 
     // Attendre que l'utilisateur soit disponible
     let attempts = 0;
@@ -143,7 +220,7 @@ async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
                   `💡 Utilisez *${prefix || '.'}menu* pour voir les commandes disponibles.`;
 
     await devask.sendMessage(devask.user.id, {
-      image: { url: 'https://files.catbox.moe/8s81zw.jpg' }, 
+      image: { url: '' }, 
       caption: message,
       contextInfo: {
         ...contextInfo
@@ -169,13 +246,17 @@ async function sendWelcomeMessage(devask, sessionConfig, connectionDuration) {
 // ==================== Lancer un bot pour une session ====================
 async function startBotForSession(sessionConfig) {
   try {
-    const { name: sessionName, sessionId, ownerNumber, sudo, prefix, mode } = sessionConfig;
+    const { name: sessionName, sessionId } = sessionConfig;
 
     // Vérifier si la session est déjà active
     if (activeSessions.has(sessionName)) {
       console.log(chalk.yellow(`⚠️ Session ${sessionName} déjà active, ignore...`));
       return;
     }
+
+    // Charger la configuration utilisateur
+    const userConfig = getUserConfig(sessionName);
+    const { ownerNumber, prefix, mode, sudo } = userConfig;
 
     console.log(chalk.blue(`🔧 Initialisation de la session: ${sessionName}`));
     console.log(chalk.blue(`   👤 Owner: ${ownerNumber}`));
@@ -211,8 +292,11 @@ async function startBotForSession(sessionConfig) {
     // ==================== AJOUT IMPORTANT : Assigner sessionId à devask ====================
     // Cela permet au handler d'identifier la session et récupérer sa config spécifique
     devask.sessionId = sessionId;
+    devask.sessionName = sessionName;
 
     // ==================== Configuration globale par session ====================
+    // Ces variables sont maintenant utilisées comme fallback
+    // Le handler utilisera principalement les fichiers JSON utilisateur
     global.PREFIX = prefix || '.';
     global.owner = [ownerNumber];
     global.SUDO = sudo || [];
@@ -245,7 +329,7 @@ async function startBotForSession(sessionConfig) {
 
         activeSessions.set(sessionName, {
           socket: devask,
-          config: sessionConfig,
+          config: { ...sessionConfig, ...userConfig }, // Inclure la config utilisateur
           connected: false,
           qrCode: qr,
           lastDisconnectTime: null,
@@ -263,7 +347,7 @@ async function startBotForSession(sessionConfig) {
         // Mettre à jour la session active
         activeSessions.set(sessionName, {
           socket: devask,
-          config: sessionConfig,
+          config: { ...sessionConfig, ...userConfig }, // Inclure la config utilisateur
           connected: true,
           qrCode: null,
           lastDisconnectTime: null,
@@ -286,7 +370,7 @@ async function startBotForSession(sessionConfig) {
         // Mettre à jour les métriques
         activeSessions.set(sessionName, {
           socket: devask,
-          config: sessionConfig,
+          config: { ...sessionConfig, ...userConfig }, // Inclure la config utilisateur
           connected: false,
           qrCode: null,
           lastDisconnectTime: Date.now(),
@@ -326,7 +410,7 @@ async function startBotForSession(sessionConfig) {
     // Stocker la socket dans les sessions actives
     activeSessions.set(sessionName, {
       socket: devask,
-      config: sessionConfig,
+      config: { ...sessionConfig, ...userConfig }, // Inclure la config utilisateur
       connected: false,
       qrCode: null,
       lastDisconnectTime: null,
@@ -361,7 +445,7 @@ async function startAllSessions() {
   }
 
   for (const session of sessions) {
-    if (session.name && session.sessionId && session.ownerNumber) {
+    if (session.name && session.sessionId) {
       await startBotForSession(session);
     }
   }
@@ -396,6 +480,9 @@ function watchConfigChanges() {
     }
   });
 }
+
+// ==================== Initialisation au démarrage ====================
+console.log(chalk.blue('🔧 Initialisation du système multi-utilisateur...'));
 
 // ==================== Execute ====================
 watchConfigChanges();
