@@ -13,27 +13,50 @@ const upload = (data, name) => {
                 throw new Error("Missing required authentication fields");
             }
 
-            console.log("Using auth:", auth);
+            console.log("Starting Mega upload...");
 
-            // Utilisez Storage directement au lieu de mega.Storage
-            const storage = new Storage(auth, () => {
-                data.pipe(storage.upload({ 
+            const storage = new Storage(auth, (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                const uploadStream = storage.upload({ 
                     name: name, 
                     allowUploadBuffering: true 
-                }));
-                
-                storage.on("add", (file) => {
+                });
+
+                data.pipe(uploadStream);
+
+                uploadStream.on('complete', (file) => {
                     file.link((err, url) => {
                         if (err) {
                             reject(err);
                             return;
                         }
+                        console.log("Upload completed:", url);
                         storage.close();
                         resolve(url);
                     });
                 });
+
+                uploadStream.on('error', (err) => {
+                    reject(err);
+                    storage.close();
+                });
+
+                data.on('error', (err) => {
+                    reject(err);
+                    storage.close();
+                });
             });
+
+            storage.on('error', (err) => {
+                reject(err);
+            });
+
         } catch (err) {
+            console.error("Mega upload error:", err);
             reject(err);
         }
     });
