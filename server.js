@@ -78,12 +78,12 @@ app.get('/deploye', (req, res) => {
     res.sendFile(path.join(__dirname, 'deploye.html'));
 });
 
-// Route HTML principale
-app.get('/pair', (req, res) => {
+// Route HTML principale - CORRECTION ICI
+app.get('/pair-page', (req, res) => {  // Changé de '/pair' à '/pair-page'
     res.sendFile(path.join(__path, 'pair.html'));
 });
 
-// Route API WhatsApp (pair)
+// Route API WhatsApp (pair) - LAISSEZ CETTE ROUTE TEL QUEL
 app.use('/pair', pairRouter);
 
 // ==================== API Routes pour configurations utilisateur ====================
@@ -94,7 +94,7 @@ app.post('/api/save-owner', (req, res) => {
     const { userJid, ownerNumber } = req.body;
     const owners = loadUserConfig('owner.json');
     owners[userJid] = ownerNumber;
-    
+
     if (saveUserConfig('owner.json', owners)) {
       res.json({ success: true });
     } else {
@@ -112,7 +112,7 @@ app.post('/api/save-prefix', (req, res) => {
     const { userJid, prefix } = req.body;
     const prefixes = loadUserConfig('prefix.json');
     prefixes[userJid] = prefix;
-    
+
     if (saveUserConfig('prefix.json', prefixes)) {
       res.json({ success: true });
     } else {
@@ -130,7 +130,7 @@ app.post('/api/save-mode', (req, res) => {
     const { userJid, mode } = req.body;
     const modes = loadUserConfig('mode.json');
     modes[userJid] = mode;
-    
+
     if (saveUserConfig('mode.json', modes)) {
       res.json({ success: true });
     } else {
@@ -147,13 +147,13 @@ app.post('/api/save-sudo', (req, res) => {
   try {
     const { userJid, sudoNumbers } = req.body;
     const sudo = loadUserConfig('sudo.json');
-    
+
     // Convertir les numéros en format JID
     sudo[userJid] = sudoNumbers.map(num => {
       const cleanNum = num.replace(/[^\d]/g, '');
       return cleanNum + '@s.whatsapp.net';
     });
-    
+
     if (saveUserConfig('sudo.json', sudo)) {
       res.json({ success: true });
     } else {
@@ -171,7 +171,7 @@ app.post('/api/save-sudo', (req, res) => {
 app.get('/api/config', (req, res) => {
     try {
         const config = loadConfig();
-        
+
         // Ajouter le statut des sessions actives
         const sessionsWithStatus = config.sessions.map(session => {
             const activeSession = activeSessions.get(session.name);
@@ -228,14 +228,14 @@ app.post('/api/config', async (req, res) => {
 
         if (success) {
             console.log('✅ Configuration ASK CRASHER sauvegardée');
-            
+
             // DÉMARRER LES NOUVELLES SESSIONS
             let startedCount = 0;
             let failedCount = 0;
-            
+
             if (newSessions.length > 0) {
                 console.log(`🎯 Détection de ${newSessions.length} nouvelle(s) session(s) à démarrer:`);
-                
+
                 for (const session of newSessions) {
                     console.log(`   ➕ Démarrage de: ${session.name}`);
                     try {
@@ -325,10 +325,10 @@ app.get('/api/session/:sessionName/mega-status', (req, res) => {
 
         const sessionUserDir = path.join(__dirname, 'sessions', sessionName);
         const credsPath = path.join(sessionUserDir, 'creds.json');
-        
+
         const megaLoaded = fs.existsSync(credsPath);
         const sessionDirExists = fs.existsSync(sessionUserDir);
-        
+
         res.json({
             sessionName,
             existsInConfig: true,
@@ -366,7 +366,7 @@ app.get('/api/session/:sessionName/connection-status', async (req, res) => {
 
         // Vérifier si le message de bienvenue a été envoyé
         const messageSent = session.performance?.welcomeMessageSent || false;
-        
+
         let progress = 'connecting';
         let message = '🔄 Connexion en cours...';
 
@@ -439,14 +439,14 @@ app.get('/api/sessions/active', (req, res) => {
 app.post('/api/sessions/start', async (req, res) => {
     try {
         const { sessionName } = req.body;
-        
+
         if (!sessionName) {
             return res.status(400).json({ error: 'Nom de session requis' });
         }
 
         const config = loadConfig();
         const session = config.sessions.find(s => s.name === sessionName);
-        
+
         if (!session) {
             return res.status(404).json({ error: 'Session non trouvée dans la config' });
         }
@@ -465,7 +465,7 @@ app.post('/api/sessions/start', async (req, res) => {
 
         // Démarrer la session
         await startBotForSession(session);
-        
+
         res.json({ 
             success: true, 
             message: 'Session démarrée avec succès',
@@ -518,7 +518,7 @@ app.get('/api/health', (req, res) => {
     try {
         const config = loadConfig();
         const activeSessionsArray = Array.from(activeSessions.values());
-        
+
         const stats = {
             connected: activeSessionsArray.filter(s => s.connected).length,
             connecting: activeSessionsArray.filter(s => !s.connected && !s.qrCode).length,
@@ -554,7 +554,7 @@ app.get('/api/stats', (req, res) => {
     try {
         const config = loadConfig();
         const activeSessionsArray = Array.from(activeSessions.values());
-        
+
         const stats = {
             global: {
                 totalSessions: config.sessions.length,
@@ -593,6 +593,7 @@ app.use((req, res) => {
         message: 'Utilisez / pour déployer une session ASK CRASHER',
         availableEndpoints: [
             'GET  / - Page de déploiement',
+            'GET  /pair-page - Page de pairing WhatsApp', // Mise à jour ici
             'GET  /api/config - Configuration',
             'POST /api/config - Sauvegarder configuration',
             'POST /api/save-owner - Sauvegarder owner',
@@ -623,6 +624,7 @@ app.listen(PORT, () => {
     console.log(`\n🔥 ASK CRASHER Server Started!`);
     console.log(`=========================================`);
     console.log(`🚀 Déploiement: http://localhost:${PORT}`);
+    console.log(`📱 Pairing WhatsApp: http://localhost:${PORT}/pair-page`); // Mise à jour ici
     console.log(`🔧 API Config: http://localhost:${PORT}/api/config`);
     console.log(`👤 Multi-utilisateur: Système activé`);
     console.log(`📊 Sessions: http://localhost:${PORT}/api/sessions/active`);
