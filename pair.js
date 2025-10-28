@@ -28,7 +28,7 @@ _. https://whatsapp.com/channel/0029VaiPkRPLY6d0qEX50e2k ._
 
 import { upload } from './mega.js';
 import {
-    default as makeWASocket,
+    makeWASocket,
     useMultiFileAuthState,
     delay,
     makeCacheableSignalKeyStore,
