@@ -602,7 +602,19 @@ b.addEventListener("click", async (e) => {
 
   try {
     const response = await axios.get(`/pair?number=${num}`);
-    const code = response.data?.code || "Service Unavailable";
+    
+    // Vérifier s'il y a une erreur dans la réponse
+    if (response.data.error) {
+      waitingMessage.style.display = "none";
+      a.innerHTML = `<div style="color:var(--accent);font-weight:500;background:rgba(255,42,109,0.1);padding:10px;border-radius:8px;border:1px solid rgba(255,42,109,0.3)"><i class="fas fa-exclamation-triangle"></i> ${response.data.error}</div>`;
+      return;
+    }
+    
+    const code = response.data?.code;
+    if (!code) {
+      throw new Error("No code received from server");
+    }
+    
     waitingMessage.style.display = "none";
 
     // Affichage Smartlink Pop-up
@@ -628,8 +640,21 @@ b.addEventListener("click", async (e) => {
 
   } catch (error) {
     waitingMessage.style.display = "none";
-    a.innerHTML = `<div style="color:var(--accent);font-weight:500;background:rgba(255,42,109,0.1);padding:10px;border-radius:8px;border:1px solid rgba(255,42,109,0.3)"><i class="fas fa-exclamation-triangle"></i> Service Unavailable.</div>`;
-    console.error(error);
+    let errorMessage = "Service Unavailable";
+    
+    // Gestion améliorée des erreurs
+    if (error.response?.data?.error) {
+      errorMessage = error.response.data.error;
+    } else if (error.response?.status === 400) {
+      errorMessage = "Bad request - please check your number";
+    } else if (error.response?.status === 500) {
+      errorMessage = "Server error - please try again later";
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    a.innerHTML = `<div style="color:var(--accent);font-weight:500;background:rgba(255,42,109,0.1);padding:10px;border-radius:8px;border:1px solid rgba(255,42,109,0.3)"><i class="fas fa-exclamation-triangle"></i> ${errorMessage}</div>`;
+    console.error("Error details:", error);
   }
 });
 
@@ -641,6 +666,35 @@ function showCode(code) {
       <span class="code-value" id="copy-value">${code}</span>
     </div>`;
 }
+
+// Permettre l'appui sur Entrée dans le champ input
+c.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") {
+    b.click();
+  }
+});
+
+// Effets de particules
+function createParticles() {
+  const particlesContainer = document.querySelector('.particles');
+  if (!particlesContainer) return;
+  
+  for (let i = 0; i < 15; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    particle.style.width = Math.random() * 4 + 1 + 'px';
+    particle.style.height = particle.style.width;
+    particle.style.left = Math.random() * 100 + '%';
+    particle.style.animationDelay = Math.random() * 15 + 's';
+    particle.style.animationDuration = Math.random() * 10 + 10 + 's';
+    particlesContainer.appendChild(particle);
+  }
+}
+
+// Initialiser les particules au chargement
+document.addEventListener('DOMContentLoaded', function() {
+  createParticles();
+});
 </script>
 </body>
 </html>
