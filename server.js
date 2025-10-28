@@ -78,13 +78,13 @@ app.get('/deploye', (req, res) => {
     res.sendFile(path.join(__dirname, 'deploye.html'));
 });
 
-// Route HTML principale - CORRECTION ICI
-app.get('/pair-page', (req, res) => {  // Changé de '/pair' à '/pair-page'
+// Route HTML principale - SERVIR pair.html
+app.get('/pair', (req, res) => {
     res.sendFile(path.join(__path, 'pair.html'));
 });
 
-// Route API WhatsApp (pair) - LAISSEZ CETTE ROUTE TEL QUEL
-app.use('/pair', pairRouter);
+// Route API WhatsApp (pair) - CORRECTION ICI: utilisation de /api/pair
+app.use('/api/pair', pairRouter);
 
 // ==================== API Routes pour configurations utilisateur ====================
 
@@ -593,7 +593,7 @@ app.use((req, res) => {
         message: 'Utilisez / pour déployer une session ASK CRASHER',
         availableEndpoints: [
             'GET  / - Page de déploiement',
-            'GET  /pair-page - Page de pairing WhatsApp', // Mise à jour ici
+            'GET  /pair - Page de pairing WhatsApp',
             'GET  /api/config - Configuration',
             'POST /api/config - Sauvegarder configuration',
             'POST /api/save-owner - Sauvegarder owner',
@@ -624,8 +624,9 @@ app.listen(PORT, () => {
     console.log(`\n🔥 ASK CRASHER Server Started!`);
     console.log(`=========================================`);
     console.log(`🚀 Déploiement: http://localhost:${PORT}`);
-    console.log(`📱 Pairing WhatsApp: http://localhost:${PORT}/pair-page`); // Mise à jour ici
+    console.log(`📱 Pairing WhatsApp: http://localhost:${PORT}/pair`);
     console.log(`🔧 API Config: http://localhost:${PORT}/api/config`);
+    console.log(`🤖 API Pairing: http://localhost:${PORT}/api/pair`);
     console.log(`👤 Multi-utilisateur: Système activé`);
     console.log(`📊 Sessions: http://localhost:${PORT}/api/sessions/active`);
     console.log(`❤️  Health: http://localhost:${PORT}/api/health`);
