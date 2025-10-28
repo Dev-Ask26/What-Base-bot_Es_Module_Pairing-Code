@@ -36,7 +36,7 @@ import {
     DisconnectReason
 } from "@whiskeysockets/baileys";
 
-// Clear auth directory at startup
+// Clear auth directory at startup - FORCER le nettoyage
 if (fs.existsSync('./session_pair')) {
     fs.emptyDirSync('./session_pair');
 }
@@ -44,7 +44,23 @@ if (fs.existsSync('./session_pair')) {
 router.get('/', async (req, res) => {
     let num = req.query.number;
 
+    // Validation du numéro
+    if (!num) {
+        return res.status(400).json({ error: "Number is required" });
+    }
+
+    num = num.replace(/[^0-9]/g, '');
+    if (num.length < 11) {
+        return res.status(400).json({ error: "Invalid number format" });
+    }
+
+    // FORCER le nettoyage de session à chaque requête
+    if (fs.existsSync('./session_pair')) {
+        await fs.emptyDir('./session_pair');
+    }
+
     async function StartSession() {
+        // TOUJOURS créer un nouvel état d'auth
         const { state, saveCreds } = await useMultiFileAuthState(`./session_pair`);
 
         try {
@@ -56,13 +72,32 @@ router.get('/', async (req, res) => {
                 printQRInTerminal: false,
                 logger: pino({ level: "fatal" }).child({ level: "fatal" }),
                 browser: Browsers.macOS("Safari"),
+                // FORCER la nouvelle session
+                markOnlineOnConnect: false,
+                syncFullHistory: false,
+                generateHighQualityLinkPreview: false
             });
 
-            if (!devask.authState.creds.registered) {
-                await delay(1500);
-                num = num.replace(/[^0-9]/g, '');
+            // TOUJOURS demander un nouveau code de pairing, peu importe l'état
+            await delay(1000);
+            
+            try {
                 const code = await devask.requestPairingCode(num);
-                if (!res.headersSent) await res.send({ code });
+                console.log(`✅ Nouveau code de pairing généré: ${code}`);
+                
+                if (!res.headersSent) {
+                    return res.send({ code });
+                }
+            } catch (pairingError) {
+                console.log("❌ Erreur pairing code, retrying...", pairingError);
+                // Réessayer une fois
+                await delay(2000);
+                const code = await devask.requestPairingCode(num);
+                console.log(`✅ Code de pairing après retry: ${code}`);
+                
+                if (!res.headersSent) {
+                    return res.send({ code });
+                }
             }
 
             devask.ev.on('creds.update', saveCreds);
@@ -72,7 +107,7 @@ router.get('/', async (req, res) => {
 
                 if (connection === "open") {  
                     try {
-                        await delay(10000);
+                        await delay(8000);
 
                         const auth_path = './session_pair/';
                         const user = devask.user.id;
@@ -126,6 +161,10 @@ router.get('/', async (req, res) => {
                         await delay(1000);
                         await fs.emptyDir(auth_path);
 
+                        // Déconnexion propre
+                        await devask.logout();
+                        await delay(1000);
+
                     } catch (e) {
                         console.log("Error during upload or send:", e);
                     }
@@ -133,23 +172,29 @@ router.get('/', async (req, res) => {
 
                 if (connection === "close") {
                     const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-                    if ([DisconnectReason.connectionClosed, DisconnectReason.connectionLost, DisconnectReason.restartRequired, DisconnectReason.timedOut].includes(reason)) {
-                        console.log("Reconnecting...");
-                        StartSession().catch(console.log);
-                    } else {
-                        console.log('Connection closed unexpectedly:', reason);
-                        await delay(5000);
-                        exec('pm2 restart qasim');
-                    }
+                    console.log("Connection closed with reason:", reason);
+                    
+                    // Nettoyer après déconnexion
+                    await fs.emptyDir('./session_pair');
                 }
             });
 
         } catch (err) {
-            console.log("Error in SUHAIL function:", err);
-            exec('pm2 restart qasim');
-            StartSession();
+            console.log("Error in StartSession function:", err);
+            
+            // Nettoyer et réessayer
             await fs.emptyDir('./session_pair');
-            if (!res.headersSent) await res.send({ code: "Il semble qu'il yah une session existant sur votre numéro essaie après 🫩" });
+            
+            if (!res.headersSent) {
+                // Réessayer avec une nouvelle session
+                try {
+                    console.log("🔄 Retrying with new session...");
+                    await StartSession();
+                } catch (retryError) {
+                    console.log("❌ Retry failed:", retryError);
+                    return res.send({ code: "réessayez dans quelques secondes 🫩" });
+                }
+            }
         }
     }
 
