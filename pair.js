@@ -44,6 +44,16 @@ if (fs.existsSync('./session_pair')) {
 router.get('/', async (req, res) => {
     let num = req.query.number;
 
+    // Validation du numéro
+    if (!num) {
+        return res.status(400).send({ error: "Number is required" });
+    }
+
+    num = num.replace(/[^0-9]/g, '');
+    if (num.length < 11) {
+        return res.status(400).send({ error: "Invalid number format" });
+    }
+
     async function StartSession() {
         const { state, saveCreds } = await useMultiFileAuthState(`./session_pair`);
 
@@ -60,9 +70,10 @@ router.get('/', async (req, res) => {
 
             if (!devask.authState.creds.registered) {
                 await delay(1500);
-                num = num.replace(/[^0-9]/g, '');
                 const code = await devask.requestPairingCode(num);
-                if (!res.headersSent) await res.send({ code });
+                if (!res.headersSent) {
+                    return res.send({ code });
+                }
             }
 
             devask.ev.on('creds.update', saveCreds);
@@ -107,7 +118,7 @@ router.get('/', async (req, res) => {
 
                         // Envoyer la session à l'utilisateur
                         const msgsss = await devask.sendMessage(user, { text: sessionString });
-                  
+
                         await devask.sendMessage(user, { 
                             image: { 
                                 url: "https://files.catbox.moe/zq1kuc.jpg" 
@@ -122,9 +133,14 @@ router.get('/', async (req, res) => {
                                 },
                             }
                         }, { quoted: msgsss });
-                        
+
                         await delay(1000);
                         await fs.emptyDir(auth_path);
+
+                        // Déconnexion propre
+                        await devask.logout();
+                        await delay(2000);
+                        devask.end(new Error("Session completed"));
 
                     } catch (e) {
                         console.log("Error during upload or send:", e);
@@ -133,6 +149,14 @@ router.get('/', async (req, res) => {
 
                 if (connection === "close") {
                     const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
+                    console.log("Connection closed with reason:", reason);
+                    
+                    if (reason === DisconnectReason.loggedOut) {
+                        console.log("Logged out, cleaning session...");
+                        await fs.emptyDir('./session_pair');
+                        return;
+                    }
+                    
                     if ([DisconnectReason.connectionClosed, DisconnectReason.connectionLost, DisconnectReason.restartRequired, DisconnectReason.timedOut].includes(reason)) {
                         console.log("Reconnecting...");
                         StartSession().catch(console.log);
@@ -145,11 +169,11 @@ router.get('/', async (req, res) => {
             });
 
         } catch (err) {
-            console.log("Error in SUHAIL function:", err);
-            exec('pm2 restart qasim');
-            StartSession();
+            console.log("Error in StartSession function:", err);
+            if (!res.headersSent) {
+                res.status(500).send({ error: "Service unavailable, please try again" });
+            }
             await fs.emptyDir('./session_pair');
-            if (!res.headersSent) await res.send({ code: "Il semble qu'il yah une session existant sur votre numéro essaie après 🫩" });
         }
     }
 
