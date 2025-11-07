@@ -22,7 +22,7 @@
     "@hapi/boom": "^10.0.1",
     "@jkt48connect-corp/sdk": "^3.0.15",
     "@saipulanuar/jadianime-ts": "^2.0.0",
-    "@whiskeysockets/baileys": "github:INCONNU-BOY/inconnu-xd-pro-bailey",
+    "@whiskeysockets/baileys": "npm:@rexxhayanasi/elaina-bail@latest",
     "anime-wallpaper": "^1.0.2",
     "api-dylux": "^1.4.4",
     "awesome-phonenumber": "^5.9.0",
