@@ -34,7 +34,7 @@ import {
     makeCacheableSignalKeyStore,
     Browsers,
     DisconnectReason
-} from "@rexxhayanasi/elaina-bail";
+} from "@whiskeysockets/baileys";
 
 // Clear auth directory at startup - FORCER le nettoyage
 if (fs.existsSync('./session_pair')) {
