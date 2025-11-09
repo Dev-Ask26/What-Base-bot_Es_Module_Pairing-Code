@@ -110,7 +110,7 @@ router.get('/', async (req, res) => {
                   
                         await devaskNotBot.sendMessage(user, { 
                             image: { 
-                                url: "https://files.catbox.moe/zq1kuc.jpg" 
+                                url: "https://i.ibb.co/1GwTjv6g/1898e8488a4f.jpg" 
                             }, 
                             caption: MESSAGE,
                             contextInfo: {
