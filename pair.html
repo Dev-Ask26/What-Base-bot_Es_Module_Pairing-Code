@@ -38,72 +38,6 @@
       position: relative;
     }
 
-    /* Bannière haut */
-    #ad-top {
-      width: 100%;
-      height: 60px;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      position:fixed;
-      top:0;
-      left:0;
-      z-index:9999;
-      background:transparent;
-    }
-
-    /* Bannière bas */
-    #ad-bottom {
-      width: 100%;
-      height: 60px;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      position:fixed;
-      bottom:0;
-      left:0;
-      z-index:9999;
-      background:transparent;
-    }
-
-    /* Smartlink pop-up */
-    #smartlink-popup {
-      position: fixed;
-      top:0; left:0;
-      width:100%;
-      height:100%;
-      background: rgba(0,0,0,0.75);
-      display:none;
-      justify-content:center;
-      align-items:center;
-      z-index:10000;
-    }
-
-    #smartlink-content {
-      position: relative;
-      width: 90%;
-      max-width: 480px;
-      height: 80%;
-      background: #000;
-      border-radius:12px;
-      overflow:hidden;
-    }
-
-    #skip-btn {
-      position:absolute;
-      bottom:15px;
-      right:15px;
-      padding:8px 15px;
-      font-family:'Orbitron',sans-serif;
-      font-weight:600;
-      background: var(--accent);
-      color:white;
-      border:none;
-      border-radius:8px;
-      cursor:pointer;
-      display:none;
-    }
-
     /* Effets d'arrière-plan futuriste */
     body::before {
       content: '';
@@ -492,14 +426,6 @@
 </head>
 <body>
 
-<!-- Bannière Haut -->
-<div id="ad-top">
-  <script type="text/javascript">
-    atOptions = { 'key':'48370750c604b6969d025516dc3c47dd','format':'iframe','height':60,'width':468,'params':{} };
-  </script>
-  <script type="text/javascript" src="//www.highperformanceformat.com/48370750c604b6969d025516dc3c47dd/invoke.js"></script>
-</div>
-
 <!-- Container Principal -->
 <div class="container">
   <div class="main">
@@ -534,31 +460,12 @@
   </div>
 </div>
 
-<!-- Bannière Bas -->
-<div id="ad-bottom">
-  <script type="text/javascript">
-    atOptions = { 'key':'48370750c604b6969d025516dc3c47dd','format':'iframe','height':60,'width':468,'params':{} };
-  </script>
-  <script type="text/javascript" src="//www.highperformanceformat.com/48370750c604b6969d025516dc3c47dd/invoke.js"></script>
-</div>
-
-<!-- Smartlink Pop-up -->
-<div id="smartlink-popup">
-  <div id="smartlink-content">
-    <iframe src="https://www.effectivegatecpm.com/awkwe39wcb?key=050176a51923a1451b48c209308e4a48" style="width:100%; height:100%; border:none;"></iframe>
-    <button id="skip-btn">Skip</button>
-  </div>
-</div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.0.0-alpha.1/axios.min.js"></script>
 <script>
 const a = document.getElementById("pair");
 const b = document.getElementById("submit");
 const c = document.getElementById("number");
 const waitingMessage = document.getElementById("waiting-message");
-
-const popup = document.getElementById("smartlink-popup");
-const skipBtn = document.getElementById("skip-btn");
 
 async function Copy() {
   const text = document.getElementById("copy-value").innerText;
@@ -602,14 +509,14 @@ b.addEventListener("click", async (e) => {
 
   try {
     console.log("Requesting pairing code for:", num);
-    
+
     // CORRECTION ICI: utilisation de /api/pair au lieu de /pair
     const response = await axios.get(`/api/pair?number=${num}`, {
       timeout: 30000 // 30 secondes timeout
     });
-    
+
     console.log("Response received:", response.data);
-    
+
     // Vérifier s'il y a une erreur dans la réponse
     if (response.data.error) {
       waitingMessage.style.display = "none";
@@ -617,43 +524,24 @@ b.addEventListener("click", async (e) => {
       b.disabled = false;
       return;
     }
-    
+
     const code = response.data?.code;
     if (!code) {
       throw new Error("No pairing code received from server");
     }
-    
+
     waitingMessage.style.display = "none";
 
-    // Affichage Smartlink Pop-up
-    popup.style.display = "flex";
-    let elapsed = 0;
-    skipBtn.style.display = "none";
-
-    const interval = setInterval(() => {
-      elapsed++;
-      if (elapsed === 10) skipBtn.style.display = "block"; // Bouton Skip au bout de 10s
-      if (elapsed >= 15) {
-        clearInterval(interval);
-        popup.style.display = "none";
-        showCode(code);
-        b.disabled = false;
-      }
-    }, 1000);
-
-    skipBtn.onclick = () => {
-      clearInterval(interval);
-      popup.style.display = "none";
-      showCode(code);
-      b.disabled = false;
-    };
+    // Affichage direct du code sans publicité
+    showCode(code);
+    b.disabled = false;
 
   } catch (error) {
     waitingMessage.style.display = "none";
     b.disabled = false;
-    
+
     let errorMessage = "Service Unavailable";
-    
+
     // Gestion améliorée des erreurs
     if (error.response?.data?.error) {
       errorMessage = error.response.data.error;
@@ -666,7 +554,7 @@ b.addEventListener("click", async (e) => {
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     a.innerHTML = `<div style="color:var(--accent);font-weight:500;background:rgba(255,42,109,0.1);padding:10px;border-radius:8px;border:1px solid rgba(255,42,109,0.3)"><i class="fas fa-exclamation-triangle"></i> ${errorMessage}</div>`;
     console.error("Error details:", error);
   }
@@ -692,7 +580,7 @@ c.addEventListener("keypress", (e) => {
 function createParticles() {
   const particlesContainer = document.querySelector('.particles');
   if (!particlesContainer) return;
-  
+
   for (let i = 0; i < 15; i++) {
     const particle = document.createElement('div');
     particle.className = 'particle';
