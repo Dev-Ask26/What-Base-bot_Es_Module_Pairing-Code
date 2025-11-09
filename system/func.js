@@ -9,17 +9,19 @@ import * as Jimp from "jimp";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// 🔹 Elaina Bail imports
 import {
   extractMessageContent,
   jidNormalizedUser,
-  proto,
   getContentType,
   areJidsSameUser,
   generateWAMessageFromContent,
   delay,
   getDevice
 } from "@whiskeysockets/baileys";
+
+
+import baileys from '@whiskeysockets/baileys';
+const { proto } = baileys;
 
 // =================== Fonctions utilitaires ===================
 export const sizeFormatter = (bytes, decimals = 2) => {
