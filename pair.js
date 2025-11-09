@@ -36,7 +36,7 @@ import {
     DisconnectReason
 } from "@whiskeysockets/baileys";
 
-// Clear auth directory at startup - FORCER le nettoyage
+// Clear auth directory at startup
 if (fs.existsSync('./session_pair')) {
     fs.emptyDirSync('./session_pair');
 }
@@ -44,27 +44,11 @@ if (fs.existsSync('./session_pair')) {
 router.get('/', async (req, res) => {
     let num = req.query.number;
 
-    // Validation du numéro
-    if (!num) {
-        return res.status(400).json({ error: "Number is required" });
-    }
-
-    num = num.replace(/[^0-9]/g, '');
-    if (num.length < 11) {
-        return res.status(400).json({ error: "Invalid number format" });
-    }
-
-    // FORCER le nettoyage de session à chaque requête
-    if (fs.existsSync('./session_pair')) {
-        await fs.emptyDir('./session_pair');
-    }
-
-    async function StartSession() {
-        // TOUJOURS créer un nouvel état d'auth
+    async function DevNotBot() {
         const { state, saveCreds } = await useMultiFileAuthState(`./session_pair`);
 
         try {
-            const devask = makeWASocket({
+            const devaskNotBot = makeWASocket({
                 auth: {
                     creds: state.creds,
                     keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
@@ -72,45 +56,26 @@ router.get('/', async (req, res) => {
                 printQRInTerminal: false,
                 logger: pino({ level: "fatal" }).child({ level: "fatal" }),
                 browser: Browsers.macOS("Safari"),
-                // FORCER la nouvelle session
-                markOnlineOnConnect: false,
-                syncFullHistory: false,
-                generateHighQualityLinkPreview: false
             });
 
-            // TOUJOURS demander un nouveau code de pairing, peu importe l'état
-            await delay(1000);
-            
-            try {
-                const code = await devask.requestPairingCode(num);
-                console.log(`✅ Nouveau code de pairing généré: ${code}`);
-                
-                if (!res.headersSent) {
-                    return res.send({ code });
-                }
-            } catch (pairingError) {
-                console.log("❌ Erreur pairing code, retrying...", pairingError);
-                // Réessayer une fois
-                await delay(2000);
-                const code = await devask.requestPairingCode(num);
-                console.log(`✅ Code de pairing après retry: ${code}`);
-                
-                if (!res.headersSent) {
-                    return res.send({ code });
-                }
+            if (!devaskNotBot.authState.creds.registered) {
+                await delay(1500);
+                num = num.replace(/[^0-9]/g, '');
+                const code = await devaskNotBot.requestPairingCode(num);
+                if (!res.headersSent) await res.send({ code });
             }
 
-            devask.ev.on('creds.update', saveCreds);
+            devaskNotBot.ev.on('creds.update', saveCreds);
 
-            devask.ev.on("connection.update", async (update) => {
+            devaskNotBot.ev.on("connection.update", async (update) => {
                 const { connection, lastDisconnect } = update;
 
                 if (connection === "open") {  
                     try {
-                        await delay(8000);
+                        await delay(10000);
 
                         const auth_path = './session_pair/';
-                        const user = devask.user.id;
+                        const user = devaskNotBot.user.id;
 
                         // Random Mega ID generator
                         function randomMegaId(length = 6, numberLength = 4) {
@@ -141,29 +106,33 @@ router.get('/', async (req, res) => {
                         const sessionString = `ASK-CRASHER-V1~${fileID}#${key}`;
 
                         // Envoyer la session à l'utilisateur
-                        const msgsss = await devask.sendMessage(user, { text: sessionString });
-
-                        await devask.sendMessage(user, { 
+                        const msgsss = await devaskNotBot.sendMessage(user, { text: sessionString });
+                  
+                        await devaskNotBot.sendMessage(user, { 
                             image: { 
                                 url: "https://files.catbox.moe/zq1kuc.jpg" 
                             }, 
                             caption: MESSAGE,
                             contextInfo: {
-                                isForwarded: true,
                                 mentionedJid: [user],
                                 forwardedNewsletterMessageInfo: {
                                     newsletterName: "𝐀𝐒𝐊 𝐓𝐄𝐂𝐇 || 𝐎𝐅𝐅𝐂",
                                     newsletterJid: `120363330359618597@newsletter`
                                 },
+                                isForwarded: true,
+                                externalAdReply: {
+                                    showAdAttribution: true,
+                                    title: `𝙳𝙴𝚅 𝙰𝚂𝙺 𝚃𝙴𝙲𝙷`,
+                                    mediaType: 3,
+                                    renderLargerThumbnail: false,
+                                    thumbnailUrl: '', // vide pour ne pas afficher d'image
+                                    sourceUrl: `https://whatsapp.com/channel/0029VaiPkRPLY6d0qEX50e2k`
+                                }
                             }
                         }, { quoted: msgsss });
-
+                        
                         await delay(1000);
                         await fs.emptyDir(auth_path);
-
-                        // Déconnexion propre
-                        await devask.logout();
-                        await delay(1000);
 
                     } catch (e) {
                         console.log("Error during upload or send:", e);
@@ -172,33 +141,27 @@ router.get('/', async (req, res) => {
 
                 if (connection === "close") {
                     const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-                    console.log("Connection closed with reason:", reason);
-                    
-                    // Nettoyer après déconnexion
-                    await fs.emptyDir('./session_pair');
+                    if ([DisconnectReason.connectionClosed, DisconnectReason.connectionLost, DisconnectReason.restartRequired, DisconnectReason.timedOut].includes(reason)) {
+                        console.log("Reconnecting...");
+                        DevNotBot().catch(console.log);
+                    } else {
+                        console.log('Connection closed unexpectedly:', reason);
+                        await delay(5000);
+                        exec('pm2 restart qasim');
+                    }
                 }
             });
 
         } catch (err) {
-            console.log("Error in StartSession function:", err);
-            
-            // Nettoyer et réessayer
+            console.log("Error in DevNotBot function:", err);
+            exec('pm2 restart qasim');
+            DevNotBot();
             await fs.emptyDir('./session_pair');
-            
-            if (!res.headersSent) {
-                // Réessayer avec une nouvelle session
-                try {
-                    console.log("🔄 Retrying with new session...");
-                    await StartSession();
-                } catch (retryError) {
-                    console.log("❌ Retry failed:", retryError);
-                    return res.send({ code: "réessayez dans quelques secondes 🫩" });
-                }
-            }
+            if (!res.headersSent) await res.send({ code: "Try After Few Minutes" });
         }
     }
 
-    await StartSession();
+    await DevNotBot();
 });
 
 export default router;
